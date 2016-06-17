@@ -1,0 +1,602 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Welcome to SLAMFusion’s documentation! &mdash; SLAMFusion 1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="SLAMFusion 1 documentation" href="#" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="#">SLAMFusion 1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="welcome-to-slamfusion-s-documentation">
+<h1>Welcome to SLAMFusion&#8217;s documentation!<a class="headerlink" href="#welcome-to-slamfusion-s-documentation" title="Permalink to this headline">¶</a></h1>
+<p>Contents:</p>
+<div class="toctree-wrapper compound">
+<ul class="simple">
+</ul>
+</div>
+<span class="target" id="module-multislamMk3"></span><p>SLAMFusion
+1-Aplicar outros metodos aos ros bags
+2-identificar rosbag com ground truths sem metodos slam.
+3-Mapas produzidos por cada um dos metodos para os datasets.
+4-Preceber o conteudo dos rosbags.
+5-arranjar forma de colocar os mapas do mesmo tamanho, dinamicamente.</p>
+<p>Ver state of the art no slam
+Revistas onde estao a aparecer os metodos slam.
+99-Estudar como ter os mapas dinamicamente num nodo ros.</p>
+<p>20-4-2016
+NOTA IMP: VX-&gt; Anteriores MKX-&gt; REcentes
+Ate Maio.</p>
+<p>1-report de cloud robotics. Procurar no ieee xplore em 2016 algum review ou mais papers que falem sobre isto</p>
+<p>1-Estado da arte
+O que é um algoritmo cloud robotic (o que se considera,) O ros é cloud robotic?</p>
+<p>como fazer a nossa propria cloud? o ros faz?</p>
+<p>ver frameworks para cloud robotics.</p>
+<p>2-Acabar o codigo (este especifico aberto)
+Ver como passar o opencv para gpu</p>
+<p>3- Paper para revista com tudo isto.</p>
+<hr class="docutils" />
+<p>TODO list:</p>
+<dl class="docutils">
+<dt>Fazer alinhamento dos 3 mapas em relação a ground truth. (Oposto do que esta feito)</dt>
+<dd>++DONE++Colocar todos os mapas com as mesmas dimensões</dd>
+</dl>
+<p>Definir o maior mapa pelo size, A= maior B= Menor. guardar informação no tuplo
+(função process)</p>
+<ul class="simple">
+<li>mudar floats32 para int32</li>
+<li>experiencias com mapas novos, ver melhorias de codigo</li>
+<li>Ver threads aplicadas ao pyopencl</li>
+</ul>
+<p>Método hierárquico aplicado a procura de mapas
+(Scale do mapa 100x100 para 10x10)
+Ver no opencv: Correcção das rotações, acrescentar -1 em vez de 0</p>
+<p>TODO Done list:</p>
+<ul class="simple">
+<li>Correr codigo com placa nova.</li>
+<li>ver salto de tempo entre ROTMAX = 5(3 secs) e ROTMAX = 45(6 secs) ROTMAX = 90 (10 secs)</li>
+<li>Tratar de mudar a grafica principal</li>
+</ul>
+<div class="section" id="bugs-to-fix">
+<h2>Bugs to fix<a class="headerlink" href="#bugs-to-fix" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="fixed-bugs">
+<h2>Fixed Bugs<a class="headerlink" href="#fixed-bugs" title="Permalink to this headline">¶</a></h2>
+<p>Pesquisa apenas procurava para traz entre (-10-&gt;0), agora procura (-10-&gt;0-&gt;10)</p>
+</div>
+<div class="section" id="additions">
+<h2>Additions<a class="headerlink" href="#additions" title="Permalink to this headline">¶</a></h2>
+<p>ArrayHalfMaker (start)</p>
+</div>
+<div class="section" id="global-variables">
+<h2>Global Variables<a class="headerlink" href="#global-variables" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>ROTMAX = 5 -&gt;Max angle for rotations</li>
+<li>countkarto = 0 -&gt; Karto Frame counter</li>
+<li>datakarto=OccupancyGrid() -&gt; Karto Map Information</li>
+<li>countgmapping = 0 -&gt; Gmapping Frame counter</li>
+<li>datagmapping=OccupancyGrid() -&gt; Gmapping Map Information</li>
+<li>countrtab = 0 -&gt; RTABMap Frame counter</li>
+<li>datartab=OccupancyGrid() -&gt; RTABMap Map Information</li>
+<li>countSLAMFusion = 0 -&gt; SLAMFusion Frame counter</li>
+<li>dataSLAMFusion = OccupancyGrid() -&gt; Slamfusion Map Information</li>
+</ul>
+</div>
+<div class="section" id="methods">
+<h2>Methods<a class="headerlink" href="#methods" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="multislamMk3.arrayHalfMaker">
+<code class="descclassname">multislamMk3.</code><code class="descname">arrayHalfMaker</code><span class="sig-paren">(</span><em>start</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#arrayHalfMaker"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.arrayHalfMaker" title="Permalink to this definition">¶</a></dt>
+<dd><p>Recieves a as a parameter a start value, divides that value by 2 until its equal to 1, appending the results to a array.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>start</strong> (<em>Integer</em>) &#8211; Start value</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Integer Array &#8211; the various results calculated.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.calcErros">
+<code class="descclassname">multislamMk3.</code><code class="descname">calcErros</code><span class="sig-paren">(</span><em>a_or</em>, <em>b_or</em>, <em>halfmaker=20</em>, <em>debug=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#calcErros"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.calcErros" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wrapper method that calls the various methods to create the merged map.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>array</strong> (<em>Integer array.</em>) &#8211; Usualy provided by arrayHalfMaker, containing the decimation values.</li>
+<li><strong>a_or</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from one of the bigger maps, usualy Gmapping.</li>
+<li><strong>b_or</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from one of the bigger maps, usualy RTABMap.</li>
+<li><strong>c_or</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from the smaller map, usualy Karto.</li>
+<li><strong>debug</strong> (<em>boolean, default:False.</em>) &#8211; Contains the map values, from the smaller map, usualy Karto.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Float matrix containing the final map after all calculations</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.calcErrosMK1">
+<code class="descclassname">multislamMk3.</code><code class="descname">calcErrosMK1</code><span class="sig-paren">(</span><em>a_or</em>, <em>b_or</em>, <em>erroOnly=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#calcErrosMK1"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.calcErrosMK1" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wrapper method that calls the various methods to create the merged map.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>array</strong> (<em>Integer array.</em>) &#8211; Usualy provided by arrayHalfMaker, containing the decimation values.</li>
+<li><strong>a_or</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from one of the bigger maps, usualy Gmapping.</li>
+<li><strong>b_or</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from one of the bigger maps, usualy RTABMap.</li>
+<li><strong>c_or</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from the smaller map, usualy Karto.</li>
+<li><strong>debug</strong> (<em>boolean, default:False.</em>) &#8211; Contains the map values, from the smaller map, usualy Karto.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Float matrix containing the final map after all calculations</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.calcErrosV2">
+<code class="descclassname">multislamMk3.</code><code class="descname">calcErrosV2</code><span class="sig-paren">(</span><em>a_or</em>, <em>b_or</em>, <em>halfmaker=20</em>, <em>samesize=0</em>, <em>debug=False</em>, <em>rotstep=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#calcErrosV2"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.calcErrosV2" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wrapper method that calls the various methods to create the merged map.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>array</strong> (<em>Integer array.</em>) &#8211; Usualy provided by arrayHalfMaker, containing the decimation values.</li>
+<li><strong>a_or</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from one of the bigger maps, usualy Gmapping.</li>
+<li><strong>b_or</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from one of the bigger maps, usualy RTABMap.</li>
+<li><strong>c_or</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from the smaller map, usualy Karto.</li>
+<li><strong>debug</strong> (<em>boolean, default:False.</em>) &#8211; Contains the map values, from the smaller map, usualy Karto.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Float matrix containing the final map after all calculations</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.calcmap">
+<code class="descclassname">multislamMk3.</code><code class="descname">calcmap</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#calcmap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.calcmap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates the matrices from the map informations and invokes findandmap method.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.findandmapPV1">
+<code class="descclassname">multislamMk3.</code><code class="descname">findandmapPV1</code><span class="sig-paren">(</span><em>a_or</em>, <em>b_or</em>, <em>c_or</em>, <em>errors</em>, <em>debug=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#findandmapPV1"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.findandmapPV1" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wrapper method that calls the various methods to create the merged map.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>array</strong> (<em>Integer array.</em>) &#8211; Usualy provided by arrayHalfMaker, containing the decimation values.</li>
+<li><strong>a_or</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from one of the bigger maps, usualy Gmapping.</li>
+<li><strong>b_or</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from one of the bigger maps, usualy RTABMap.</li>
+<li><strong>c_or</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from the smaller map, usualy Karto.</li>
+<li><strong>debug</strong> (<em>boolean, default:False.</em>) &#8211; Contains the map values, from the smaller map, usualy Karto.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Float matrix containing the final map after all calculations</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.findandmapV2">
+<code class="descclassname">multislamMk3.</code><code class="descname">findandmapV2</code><span class="sig-paren">(</span><em>a_or</em>, <em>b_or</em>, <em>c_or</em>, <em>debug=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#findandmapV2"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.findandmapV2" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wrapper method that calls the various methods to create the merged map.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>array</strong> (<em>Integer array.</em>) &#8211; Usualy provided by arrayHalfMaker, containing the decimation values.</li>
+<li><strong>a_or</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from one of the bigger maps, usualy Gmapping.</li>
+<li><strong>b_or</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from one of the bigger maps, usualy RTABMap.</li>
+<li><strong>c_or</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from the smaller map, usualy Karto.</li>
+<li><strong>debug</strong> (<em>boolean, default:False.</em>) &#8211; Contains the map values, from the smaller map, usualy Karto.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Float matrix containing the final map after all calculations</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.gmapping">
+<code class="descclassname">multislamMk3.</code><code class="descname">gmapping</code><span class="sig-paren">(</span><em>data</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#gmapping"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.gmapping" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gmapping node subscriber method. 
+Sends the recieved karto node information to treatment method.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>data</strong> (<em>OccupancyGrid struct.</em>) &#8211; OccupancyGrid Data, containing map information and metadata like height, width or resulution of the map.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.karto">
+<code class="descclassname">multislamMk3.</code><code class="descname">karto</code><span class="sig-paren">(</span><em>data</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#karto"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.karto" title="Permalink to this definition">¶</a></dt>
+<dd><p>Karto node subscriber method. 
+Sends the recieved karto node information to treatment method.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>data</strong> (<em>OccupancyGrid struct.</em>) &#8211; OccupancyGrid Data, containing map information and metadata like height, width or resulution of the map.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.listner">
+<code class="descclassname">multislamMk3.</code><code class="descname">listner</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#listner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.listner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Starts the various ROS subscribers and the publisher.
+The subscribers are:</p>
+<ul class="simple">
+<li>/Karto/map.</li>
+<li>/Gmapping/map.</li>
+<li>/RTABMap/map.</li>
+</ul>
+<p>The publisher is /SLAMfusion/map</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.matrixmaker">
+<code class="descclassname">multislamMk3.</code><code class="descname">matrixmaker</code><span class="sig-paren">(</span><em>data</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#matrixmaker"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.matrixmaker" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a map matrix used throughtout the program from a integer list.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>data</strong> (<em>OccupancyGrid struct.</em>) &#8211; OccupancyGrid Data, containing map information and metadata like height, width or resulution of the map.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Integer Matrix &#8211; A 2D matrix with height and width of the map, with points ranging from -1 to 1.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.mkimg">
+<code class="descclassname">multislamMk3.</code><code class="descname">mkimg</code><span class="sig-paren">(</span><em>array</em>, <em>name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#mkimg"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.mkimg" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a image from the array information</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>array</strong> (<em>Numpy float32 array.</em>) &#8211; Map/Data array with integers that range from -1 to 1.</li>
+<li><strong>name</strong> (<em>String</em>) &#8211; name for the resulting file.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.newmap">
+<code class="descclassname">multislamMk3.</code><code class="descname">newmap</code><span class="sig-paren">(</span><em>Fmap</em>, <em>Smap</em>, <em>Tmap</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#newmap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.newmap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method that creates the final merged map.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>trigger</strong> (<em>Integer.</em>) &#8211; A trigger value, at first run it is 0, following runs it is 1.</li>
+<li><strong>Fmap</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from one of the bigger maps, usualy Gmapping.</li>
+<li><strong>Smap</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from the smaller map, usualy Karto.</li>
+<li><strong>Tmap</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from the smaller map, usualy Karto.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">The final map-merged matrix.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.newmapPond">
+<code class="descclassname">multislamMk3.</code><code class="descname">newmapPond</code><span class="sig-paren">(</span><em>Fmap</em>, <em>Smap</em>, <em>Tmap</em>, <em>erros</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#newmapPond"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.newmapPond" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method that creates the final merged map.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>trigger</strong> (<em>Integer.</em>) &#8211; A trigger value, at first run it is 0, following runs it is 1.</li>
+<li><strong>Fmap</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from one of the bigger maps, usualy Gmapping.</li>
+<li><strong>Smap</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from the smaller map, usualy Karto.</li>
+<li><strong>Tmap</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from the smaller map, usualy Karto.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">The final map-merged matrix.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.process">
+<code class="descclassname">multislamMk3.</code><code class="descname">process</code><span class="sig-paren">(</span><em>varx</em>, <em>vary</em>, <em>step</em>, <em>prestep</em>, <em>trigger</em>, <em>firstmap</em>, <em>secmap</em>, <em>soma</em>, <em>rot</em>, <em>rotx=0</em>, <em>roty=0</em>, <em>rotTri=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#process"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.process" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wrapper method that calls the various methods to create the merged map.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>varx</strong> (<em>Integer.</em>) &#8211; Start value for coordinate X.</li>
+<li><strong>vary</strong> (<em>Integer.</em>) &#8211; Start value for coordinate Y.</li>
+<li><strong>step</strong> (<em>Integer.</em>) &#8211; Step value for the the cycles.</li>
+<li><strong>prestep</strong> (<em>Integer.</em>) &#8211; Step value for the previous call of the method, At start is 0.</li>
+<li><strong>trigger</strong> (<em>Integer.</em>) &#8211; A trigger value, at first run it is 0, following runs it is 1.</li>
+<li><strong>firstmap</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from one of the bigger maps, usualy Gmapping.</li>
+<li><strong>secmap</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from the smaller map, usualy Karto.</li>
+<li><strong>soma</strong> (<em>Tuple array with values (Error value,Start coordinate X,Start coordinate Y,Rotation).</em>) &#8211; The array where the calculations are saved.</li>
+<li><strong>rot</strong> (<em>Integer.</em>) &#8211; Rotation value.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">The original Tuple array with the new calculations.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.processCycle">
+<code class="descclassname">multislamMk3.</code><code class="descname">processCycle</code><span class="sig-paren">(</span><em>array</em>, <em>mapA</em>, <em>mapB</em>, <em>rot</em>, <em>samesize=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#processCycle"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.processCycle" title="Permalink to this definition">¶</a></dt>
+<dd><p>Auxiliar method for running the matchfinding method.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>array</strong> (<em>Integer array.</em>) &#8211; Usualy provided by arrayHalfMaker, containing the decimation values.</li>
+<li><strong>mapA</strong> (<em>Float Matrice.</em>) &#8211; Contains the map values, from the bigger map, usualy Gmapping or RTABMap.</li>
+<li><strong>mapB</strong> (<em>Float Matrice.</em>) &#8211; Contains the map values, from the smaller map, usualy Karto.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Tuple - (Error value,Start coordinate X,Start coordinate Y,Rotation)</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.processMK1">
+<code class="descclassname">multislamMk3.</code><code class="descname">processMK1</code><span class="sig-paren">(</span><em>a_np</em>, <em>b_np</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#processMK1"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.processMK1" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wrapper method that calls the various methods to create the merged map.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>a_np</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from one of the bigger maps, usualy Gmapping.</li>
+<li><strong>b_np</strong> (<em>Float matrix.</em>) &#8211; Contains the map values, from the smaller map, usualy Karto.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">The original Tuple array with the new calculations.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.rtabmap">
+<code class="descclassname">multislamMk3.</code><code class="descname">rtabmap</code><span class="sig-paren">(</span><em>data</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#rtabmap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.rtabmap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Rtabmap node subscriber method. 
+Sends the recieved karto node information to treatment method.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>data</strong> (<em>OccupancyGrid struct.</em>) &#8211; OccupancyGrid Data, containing map information and metadata like height, width or resulution of the map.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.topresults">
+<code class="descclassname">multislamMk3.</code><code class="descname">topresults</code><span class="sig-paren">(</span><em>array</em>, <em>name</em>, <em>value=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#topresults"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.topresults" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prints N results from the provided array and the total length.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>array</strong> (<em>Tuple - (Error value,Start coordinate X,Start coordinate Y,Rotation).</em>) &#8211; Contains the values to be printed.</li>
+<li><strong>name</strong> (<em>String.</em>) &#8211; Name of the array.</li>
+<li><strong>value</strong> (<em>Integer, default:5.</em>) &#8211; Value of N values to print.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.treatment">
+<code class="descclassname">multislamMk3.</code><code class="descname">treatment</code><span class="sig-paren">(</span><em>data</em>, <em>name</em>, <em>count</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#treatment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.treatment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates various ways to show the obtained informations.</p>
+<ul class="simple">
+<li>Text mode.</li>
+<li>Image mode.</li>
+</ul>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>data</strong> (<em>OccupancyGrid struct.</em>) &#8211; OccupancyGrid Data, containing map information and metadata like height, width or resulution of the map.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Integer Matrix &#8211; A 2D matrix with height and width of the map, with points ranging from -1 to 1.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="multislamMk3.upmap">
+<code class="descclassname">multislamMk3.</code><code class="descname">upmap</code><span class="sig-paren">(</span><em>newmap</em>, <em>algorithm</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/multislamMk3.html#upmap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#multislamMk3.upmap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Updates map informations then flows into calcmap method if there are maps for all methods.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>newmap</strong> (<em>OccupancyGrid struct.</em>) &#8211; OccupancyGrid Data, containing map information and metadata like height, width or resulution of the map.</li>
+<li><strong>algorithm</strong> (<em>String.</em>) &#8211; OccupancyGrid Data, containing map information and metadata like height, width or resulution of the map.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></li>
+<li><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></li>
+<li><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></li>
+</ul>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="#">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Welcome to SLAMFusion&#8217;s documentation!</a><ul>
+<li><a class="reference internal" href="#bugs-to-fix">Bugs to fix</a></li>
+<li><a class="reference internal" href="#fixed-bugs">Fixed Bugs</a></li>
+<li><a class="reference internal" href="#additions">Additions</a></li>
+<li><a class="reference internal" href="#global-variables">Global Variables</a></li>
+<li><a class="reference internal" href="#methods">Methods</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
+</ul>
+
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/index.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="#">SLAMFusion 1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &copy; Copyright 2016, Miguel Fernandes, Luis Alexandre.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4a1.
+    </div>
+  </body>
+</html>

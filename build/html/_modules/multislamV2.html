@@ -1,0 +1,1035 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>multislamV2 &mdash; SLAMFusion 1 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="SLAMFusion 1 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">SLAMFusion 1 documentation</a> &raquo;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for multislamV2</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/python</span>
+<span class="c1">#-*- coding: utf-8 -*-</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">SLAMFusion</span>
+<span class="sd">TODO list:</span>
+
+<span class="sd">Colocar todos os mapas com as mesmas dimensões</span>
+<span class="sd">  </span>
+<span class="sd">Definir o maior mapa pelo size, A= maior B= Menor. guardar informação no tuplo</span>
+<span class="sd">(função process)</span>
+
+<span class="sd">- mudar floats32 para int32</span>
+<span class="sd">- experiencias com mapas novos, ver melhorias de codigo</span>
+<span class="sd">- Ver threads aplicadas ao pyopencl</span>
+
+<span class="sd">Método hierárquico aplicado a procura de mapas</span>
+<span class="sd">(Scale do mapa 100x100 para 10x10)</span>
+<span class="sd">Ver no opencv: Correcção das rotações, acrescentar -1 em vez de 0</span>
+
+
+
+
+<span class="sd">TODO Done list:</span>
+
+<span class="sd">- Correr codigo com placa nova.</span>
+<span class="sd">- ver salto de tempo entre ROTMAX = 5(3 secs) e ROTMAX = 45(6 secs) ROTMAX = 90 (10 secs)</span>
+<span class="sd">- Tratar de mudar a grafica principal</span>
+
+<span class="sd">Bugs to fix</span>
+<span class="sd">############</span>
+
+
+<span class="sd">Fixed Bugs</span>
+<span class="sd">################</span>
+
+<span class="sd">Pesquisa apenas procurava para traz entre (-10-&gt;0), agora procura (-10-&gt;0-&gt;10)</span>
+
+<span class="sd">Additions</span>
+<span class="sd">#############</span>
+
+<span class="sd">ArrayHalfMaker (start)</span>
+
+<span class="sd">Global Variables</span>
+<span class="sd">###################</span>
+<span class="sd">- ROTMAX = 5 -&gt;Max angle for rotations</span>
+<span class="sd">- countkarto = 0 -&gt; Karto Frame counter</span>
+<span class="sd">- datakarto=OccupancyGrid() -&gt; Karto Map Information</span>
+<span class="sd">- countgmapping = 0 -&gt; Gmapping Frame counter</span>
+<span class="sd">- datagmapping=OccupancyGrid() -&gt; Gmapping Map Information</span>
+<span class="sd">- countrtab = 0 -&gt; RTABMap Frame counter</span>
+<span class="sd">- datartab=OccupancyGrid() -&gt; RTABMap Map Information</span>
+<span class="sd">- countSLAMFusion = 0 -&gt; SLAMFusion Frame counter</span>
+<span class="sd">- dataSLAMFusion = OccupancyGrid() -&gt; Slamfusion Map Information</span>
+
+<span class="sd">Methods</span>
+<span class="sd">########</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">absolute_import</span><span class="p">,</span> <span class="n">print_function</span>
+<span class="kn">import</span> <span class="nn">rospy</span>
+<span class="kn">from</span> <span class="nn">std_msgs.msg</span> <span class="k">import</span> <span class="n">String</span>
+<span class="kn">from</span> <span class="nn">nav_msgs.msg</span> <span class="k">import</span> <span class="n">OccupancyGrid</span>
+<span class="kn">import</span> <span class="nn">Image</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">thread</span>
+<span class="kn">import</span> <span class="nn">threading</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">operator</span>
+<span class="kn">import</span> <span class="nn">pyopencl</span> <span class="k">as</span> <span class="nn">cl</span>
+<span class="kn">import</span> <span class="nn">cv2</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="k">import</span> <span class="n">time</span>
+<span class="kn">from</span> <span class="nn">math</span> <span class="k">import</span> <span class="n">sqrt</span>
+
+
+<span class="n">ROTMAX</span> <span class="o">=</span> <span class="mi">25</span>
+<span class="n">countkarto</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">datakarto</span><span class="o">=</span><span class="n">OccupancyGrid</span><span class="p">()</span>
+<span class="n">countgmapping</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">datagmapping</span><span class="o">=</span><span class="n">OccupancyGrid</span><span class="p">()</span>
+<span class="n">countrtab</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">datartab</span><span class="o">=</span><span class="n">OccupancyGrid</span><span class="p">()</span>
+<span class="n">countSLAMFusion</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">dataSLAMFusion</span> <span class="o">=</span> <span class="n">OccupancyGrid</span><span class="p">()</span>
+<div class="viewcode-block" id="arrayHalfMaker"><a class="viewcode-back" href="../index.html#multislamV2.arrayHalfMaker">[docs]</a><span class="k">def</span> <span class="nf">arrayHalfMaker</span><span class="p">(</span><span class="n">start</span><span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot;Recieves a as a parameter a start value, divides that value by 2 until its equal to 1, appending the results to a array.</span>
+<span class="sd">	</span>
+<span class="sd">	:param start: Start value</span>
+<span class="sd">	:type start: Integer</span>
+<span class="sd">	:returns: Integer Array -- the various results calculated.</span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="n">aux</span> <span class="o">=</span> <span class="n">start</span>
+	<span class="n">array</span> <span class="o">=</span> <span class="p">[</span><span class="n">aux</span><span class="p">]</span>
+	<span class="k">while</span> <span class="p">(</span><span class="n">aux</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">):</span>
+		<span class="n">aux</span><span class="o">=</span><span class="n">aux</span><span class="o">/</span><span class="mi">2</span>
+		<span class="n">array</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">aux</span><span class="p">)</span>
+	<span class="k">return</span> <span class="n">array</span></div>
+
+<div class="viewcode-block" id="mkimg"><a class="viewcode-back" href="../index.html#multislamV2.mkimg">[docs]</a><span class="k">def</span> <span class="nf">mkimg</span><span class="p">(</span><span class="n">array</span><span class="p">,</span><span class="n">name</span><span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot;Creates a image from the array information</span>
+<span class="sd">	</span>
+<span class="sd">	:param array: Map/Data array with integers that range from -1 to 1.</span>
+<span class="sd">	:type array: Numpy float32 array.</span>
+<span class="sd">	:param name: name for the resulting file.</span>
+<span class="sd">	:type name:  String</span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="n">aux</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">array</span><span class="p">)</span>
+	<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">nditer</span><span class="p">(</span><span class="n">aux</span><span class="p">,</span><span class="n">op_flags</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;readwrite&#39;</span><span class="p">]):</span>
+		<span class="k">if</span><span class="p">(</span><span class="n">i</span><span class="o">==</span><span class="mi">0</span><span class="p">):</span>
+			<span class="n">i</span><span class="p">[</span><span class="o">...</span><span class="p">]</span><span class="o">=</span><span class="mi">55</span>
+		<span class="k">elif</span><span class="p">(</span><span class="n">i</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">):</span>
+			<span class="n">i</span><span class="p">[</span><span class="o">...</span><span class="p">]</span><span class="o">=</span><span class="mi">35</span>
+		<span class="k">elif</span><span class="p">(</span><span class="n">i</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">):</span>
+			<span class="n">i</span><span class="p">[</span><span class="o">...</span><span class="p">]</span><span class="o">=</span><span class="mi">100</span>
+	<span class="n">new_img</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s2">&quot;L&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">aux</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">aux</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="s2">&quot;white&quot;</span><span class="p">)</span>
+	<span class="n">listimg</span> <span class="o">=</span> <span class="n">aux</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+	<span class="n">new_img</span><span class="o">.</span><span class="n">putdata</span><span class="p">(</span><span class="n">listimg</span><span class="p">)</span>
+	<span class="n">new_img</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">name</span><span class="p">)</span></div>
+	
+<div class="viewcode-block" id="karto"><a class="viewcode-back" href="../index.html#multislamV2.karto">[docs]</a><span class="k">def</span> <span class="nf">karto</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot;Karto node subscriber method. </span>
+<span class="sd">	Sends the recieved karto node information to treatment method.</span>
+<span class="sd">	</span>
+<span class="sd">	:param data: OccupancyGrid Data, containing map information and metadata like height, width or resulution of the map.</span>
+<span class="sd">	:type data: OccupancyGrid struct.</span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	
+	<span class="k">global</span> <span class="n">countkarto</span>
+	<span class="n">countkarto</span><span class="o">=</span><span class="n">countkarto</span><span class="o">+</span><span class="mi">1</span>
+	<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;Karto-&gt;&quot;</span><span class="p">,</span><span class="n">countkarto</span><span class="p">)</span>
+	<span class="n">treatment</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="s1">&#39;karto&#39;</span><span class="p">,</span><span class="n">countkarto</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="gmapping"><a class="viewcode-back" href="../index.html#multislamV2.gmapping">[docs]</a><span class="k">def</span> <span class="nf">gmapping</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot;Gmapping node subscriber method. </span>
+<span class="sd">	Sends the recieved karto node information to treatment method.</span>
+<span class="sd">	</span>
+<span class="sd">	:param data: OccupancyGrid Data, containing map information and metadata like height, width or resulution of the map.</span>
+<span class="sd">	:type data: OccupancyGrid struct.</span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="k">global</span> <span class="n">countgmapping</span>
+	<span class="n">countgmapping</span> <span class="o">=</span> <span class="n">countgmapping</span><span class="o">+</span><span class="mi">1</span>
+	<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;Gmapping-&gt;&quot;</span><span class="p">,</span><span class="n">countgmapping</span><span class="p">)</span>
+	<span class="n">treatment</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="s1">&#39;gmapping&#39;</span><span class="p">,</span><span class="n">countgmapping</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="rtabmap"><a class="viewcode-back" href="../index.html#multislamV2.rtabmap">[docs]</a><span class="k">def</span> <span class="nf">rtabmap</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot;Rtabmap node subscriber method. </span>
+<span class="sd">	Sends the recieved karto node information to treatment method.</span>
+<span class="sd">	</span>
+<span class="sd">	:param data: OccupancyGrid Data, containing map information and metadata like height, width or resulution of the map.</span>
+<span class="sd">	:type data: OccupancyGrid struct.</span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="k">global</span> <span class="n">countrtab</span>
+	<span class="n">countrtab</span><span class="o">=</span><span class="n">countrtab</span><span class="o">+</span><span class="mi">1</span>
+	<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;Rtab-&gt;&quot;</span><span class="p">,</span><span class="n">countrtab</span><span class="p">)</span>
+	<span class="n">treatment</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="s1">&#39;rtabmap&#39;</span><span class="p">,</span><span class="n">countrtab</span><span class="p">)</span></div>
+
+<span class="k">def</span> <span class="nf">defmap</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+    <span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;map-&gt;&quot;</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">treatment</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="s1">&#39;originalmap&#39;</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span>
+    
+<div class="viewcode-block" id="matrixmaker"><a class="viewcode-back" href="../index.html#multislamV2.matrixmaker">[docs]</a><span class="k">def</span> <span class="nf">matrixmaker</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot;Creates a map matrix used throughtout the program from a integer list.</span>
+<span class="sd">	</span>
+<span class="sd">	:param data: OccupancyGrid Data, containing map information and metadata like height, width or resulution of the map.</span>
+<span class="sd">	:type data: OccupancyGrid struct.</span>
+<span class="sd">	:returns: Integer Matrix -- A 2D matrix with height and width of the map, with points ranging from -1 to 1.</span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="n">matriz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">height</span><span class="p">,</span><span class="n">data</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">width</span><span class="p">)</span>
+	<span class="n">matrizCorr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flipud</span><span class="p">(</span><span class="n">matriz</span><span class="p">)</span>
+	<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">nditer</span><span class="p">(</span><span class="n">matrizCorr</span><span class="p">,</span><span class="n">op_flags</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;readwrite&#39;</span><span class="p">]):</span>
+		<span class="k">if</span><span class="p">(</span><span class="n">i</span><span class="o">==</span><span class="mi">100</span><span class="p">):</span>
+			<span class="n">i</span><span class="p">[</span><span class="o">...</span><span class="p">]</span><span class="o">=</span><span class="mi">1</span>
+	<span class="k">return</span> <span class="n">matrizCorr</span></div>
+	
+<div class="viewcode-block" id="treatment"><a class="viewcode-back" href="../index.html#multislamV2.treatment">[docs]</a><span class="k">def</span> <span class="nf">treatment</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="n">name</span><span class="p">,</span><span class="n">count</span><span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot;Creates various ways to show the obtained informations.</span>
+<span class="sd">	</span>
+<span class="sd">	- Text mode.</span>
+<span class="sd">	- Image mode.</span>
+<span class="sd">	</span>
+<span class="sd">	:param data: OccupancyGrid Data, containing map information and metadata like height, width or resulution of the map.</span>
+<span class="sd">	:type data: OccupancyGrid struct.</span>
+<span class="sd">	:returns: Integer Matrix -- A 2D matrix with height and width of the map, with points ranging from -1 to 1.</span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="s1">&#39;./&#39;</span><span class="o">+</span><span class="n">name</span><span class="p">):</span>
+		<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s1">&#39;./&#39;</span><span class="o">+</span><span class="n">name</span><span class="p">)</span>
+	<span class="n">imglist</span> <span class="o">=</span> <span class="n">matrixmaker</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+	<span class="n">imglist</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="s1">&#39;./&#39;</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">count</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;MATRIZ.bin&#39;</span><span class="p">)</span>
+	<span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="s1">&#39;./&#39;</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">count</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.txt&#39;</span><span class="p">,</span><span class="n">imglist</span><span class="p">,</span><span class="n">fmt</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">%d</span><span class="s1">&#39;</span><span class="p">)</span>
+	<span class="n">mkimg</span><span class="p">(</span><span class="n">imglist</span><span class="p">,</span><span class="s1">&#39;./&#39;</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">count</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+	<span class="n">j</span><span class="o">=</span><span class="mi">0</span>
+	<span class="n">f1</span><span class="o">=</span><span class="nb">open</span><span class="p">(</span><span class="s1">&#39;./&#39;</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">count</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;RAW.txt&#39;</span><span class="p">,</span><span class="s1">&#39;w+&#39;</span><span class="p">)</span>
+	<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">data</span><span class="p">:</span>
+		<span class="k">if</span><span class="p">(</span><span class="n">i</span><span class="o">==</span><span class="mi">0</span><span class="p">):</span>
+			<span class="n">f1</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">)</span>
+		<span class="k">if</span><span class="p">(</span><span class="n">i</span><span class="o">==</span><span class="mi">1</span><span class="p">):</span>
+			<span class="n">f1</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;X&#39;</span><span class="p">)</span>
+		<span class="k">if</span><span class="p">(</span><span class="n">i</span><span class="o">==-</span><span class="mi">1</span><span class="p">):</span>
+			<span class="n">f1</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;1&#39;</span><span class="p">)</span>
+		<span class="n">j</span><span class="o">=</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span>
+		<span class="k">if</span><span class="p">(</span><span class="n">j</span><span class="o">==</span><span class="n">data</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">width</span><span class="p">):</span>
+			<span class="n">f1</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+			<span class="n">j</span><span class="o">=</span><span class="mi">0</span>
+	<span class="n">f3</span><span class="o">=</span><span class="nb">open</span><span class="p">(</span><span class="s1">&#39;./&#39;</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">count</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;info.txt&#39;</span><span class="p">,</span><span class="s1">&#39;w+&#39;</span><span class="p">)</span>
+	<span class="n">f3</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">info</span><span class="p">))</span>
+	<span class="n">upmap</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="n">name</span><span class="p">)</span></div>
+	
+<div class="viewcode-block" id="listner"><a class="viewcode-back" href="../index.html#multislamV2.listner">[docs]</a><span class="k">def</span> <span class="nf">listner</span><span class="p">():</span>
+	<span class="sd">&quot;&quot;&quot;Starts the various ROS subscribers and the publisher.</span>
+<span class="sd">	The subscribers are:</span>
+<span class="sd">	</span>
+<span class="sd">	- /Karto/map.</span>
+<span class="sd">	- /Gmapping/map.</span>
+<span class="sd">	- /RTABMap/map.</span>
+<span class="sd">	</span>
+<span class="sd">	The publisher is /SLAMfusion/map</span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	
+	<span class="n">rospy</span><span class="o">.</span><span class="n">init_node</span><span class="p">(</span><span class="s1">&#39;SLAMFusion&#39;</span><span class="p">,</span><span class="n">anonymous</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+	<span class="n">rospy</span><span class="o">.</span><span class="n">Subscriber</span><span class="p">(</span><span class="s2">&quot;slamkarto/map&quot;</span><span class="p">,</span><span class="n">OccupancyGrid</span><span class="p">,</span><span class="n">karto</span><span class="p">)</span>
+	<span class="n">rospy</span><span class="o">.</span><span class="n">Subscriber</span><span class="p">(</span><span class="s2">&quot;gmapping/map&quot;</span><span class="p">,</span><span class="n">OccupancyGrid</span><span class="p">,</span><span class="n">gmapping</span><span class="p">)</span>
+	<span class="n">rospy</span><span class="o">.</span><span class="n">Subscriber</span><span class="p">(</span><span class="s2">&quot;rtabmap/map&quot;</span><span class="p">,</span><span class="n">OccupancyGrid</span><span class="p">,</span><span class="n">rtabmap</span><span class="p">)</span>
+	<span class="n">rospy</span><span class="o">.</span><span class="n">Subscriber</span><span class="p">(</span><span class="s2">&quot;/map&quot;</span><span class="p">,</span><span class="n">OccupancyGrid</span><span class="p">,</span><span class="n">defmap</span><span class="p">)</span>
+	<span class="n">rospy</span><span class="o">.</span><span class="n">Publisher</span><span class="p">(</span><span class="s1">&#39;/SLAMFusion/map&#39;</span><span class="p">,</span><span class="n">OccupancyGrid</span><span class="p">,</span> <span class="n">queue_size</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+	<span class="n">rospy</span><span class="o">.</span><span class="n">spin</span><span class="p">()</span></div>
+    
+<div class="viewcode-block" id="upmap"><a class="viewcode-back" href="../index.html#multislamV2.upmap">[docs]</a><span class="k">def</span> <span class="nf">upmap</span><span class="p">(</span><span class="n">newmap</span><span class="p">,</span><span class="n">algorithm</span><span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot; Updates map informations then flows into calcmap method if there are maps for all methods.</span>
+<span class="sd">	</span>
+<span class="sd">	:param newmap: OccupancyGrid Data, containing map information and metadata like height, width or resulution of the map.</span>
+<span class="sd">	:type newmap: OccupancyGrid struct.</span>
+<span class="sd">	:param algorithm: OccupancyGrid Data, containing map information and metadata like height, width or resulution of the map.</span>
+<span class="sd">	:type algorithm: String.</span>
+<span class="sd">	</span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	
+	<span class="nb">print</span> <span class="p">(</span><span class="s1">&#39;Upmap, yay!&#39;</span><span class="p">,</span><span class="n">algorithm</span><span class="p">)</span>
+	<span class="k">global</span> <span class="n">datakarto</span>
+	<span class="k">global</span> <span class="n">datagmapping</span>
+	<span class="k">global</span> <span class="n">datartab</span>
+	<span class="k">if</span><span class="p">(</span><span class="n">algorithm</span> <span class="o">==</span> <span class="s1">&#39;karto&#39;</span><span class="p">):</span>
+		<span class="k">if</span><span class="p">(</span><span class="n">newmap</span><span class="o">!=</span><span class="n">datakarto</span><span class="p">):</span>
+			<span class="n">datakarto</span><span class="o">=</span><span class="n">newmap</span>
+	<span class="k">elif</span><span class="p">(</span><span class="n">algorithm</span> <span class="o">==</span> <span class="s1">&#39;gmapping&#39;</span><span class="p">):</span>
+		<span class="k">if</span><span class="p">(</span><span class="n">newmap</span><span class="o">!=</span><span class="n">datagmapping</span><span class="p">):</span>
+			<span class="n">datagmapping</span><span class="o">=</span><span class="n">newmap</span>
+	<span class="k">elif</span><span class="p">(</span><span class="n">algorithm</span> <span class="o">==</span> <span class="s1">&#39;rtabmap&#39;</span><span class="p">):</span>
+		<span class="k">if</span><span class="p">(</span><span class="n">newmap</span><span class="o">!=</span><span class="n">datartab</span><span class="p">):</span>
+			<span class="n">datartab</span> <span class="o">=</span> <span class="n">newmap</span>
+	<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">datagmapping</span><span class="o">.</span><span class="n">data</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">datakarto</span><span class="o">.</span><span class="n">data</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">datartab</span><span class="o">.</span><span class="n">data</span><span class="p">):</span>
+		<span class="n">calcmap</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="calcmap"><a class="viewcode-back" href="../index.html#multislamV2.calcmap">[docs]</a><span class="k">def</span> <span class="nf">calcmap</span><span class="p">():</span>
+	<span class="sd">&quot;&quot;&quot; Creates the matrices from the map informations and invokes findandmap method.</span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="k">global</span> <span class="n">countSLAMFusion</span>
+	<span class="n">name</span> <span class="o">=</span> <span class="s1">&#39;SLAMFusion&#39;</span>
+	<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">	a_or = matrixmaker(datagmapping)</span>
+<span class="sd">	b_or = matrixmaker(datakarto)</span>
+<span class="sd">	c_or = matrixmaker(datartab)</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	
+	<span class="n">g_truth</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;./lastframes/gmapping1MATRIZ.bin&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+	
+	<span class="sd">&quot;&quot;&quot;&quot;</span>
+<span class="sd">	a_or =np.load(&#39;./lastframes/exp1/gmapping4MATRIZ.bin&#39;).astype(np.float32)</span>
+<span class="sd">	b_or =np.load(&#39;./lastframes/exp1/karto60MATRIZ.bin&#39;).astype(np.float32)</span>
+<span class="sd">	c_or =np.load(&#39;./lastframes/exp1/rtabmap35MATRIZ.bin&#39;).astype(np.float32)</span>
+
+
+<span class="sd">	a_or =np.load(&#39;./lastframes/exp2/gmapping4MATRIZ.bin&#39;).astype(np.float32)</span>
+<span class="sd">	b_or =np.load(&#39;./lastframes/exp2/karto62MATRIZ.bin&#39;).astype(np.float32)</span>
+<span class="sd">	c_or =np.load(&#39;./lastframes/exp2/rtabmap37MATRIZ.bin&#39;).astype(np.float32)</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+
+	<span class="n">a_or</span> <span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;./lastframes/exp3/gmapping4MATRIZ.bin&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+	<span class="n">b_or</span> <span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;./lastframes/exp3/karto59MATRIZ.bin&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+	<span class="n">c_or</span> <span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;./lastframes/exp3/rtabmap28MATRIZ.bin&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+
+	<span class="sd">&quot;&quot;&quot; Calcular os erros para utilizar na média ponderada&quot;&quot;&quot;</span>
+	<span class="sd">&quot;&quot;&quot;	erroNobs = []</span>
+<span class="sd">	erroNobs=process(0,0,1,0,0,g_truth,a_or,erroNobs,0)</span>
+<span class="sd">	erroKarto=processCycle(arrayHalfMaker(100),g_truth,b_or)</span>
+<span class="sd">	erroRTAB =processCycle(arrayHalfMaker(100),g_truth,c_or)&quot;&quot;&quot;</span>
+	
+	<span class="c1">#Calcular os erros considerando a rotação dos mapas.</span>
+	<span class="n">erroNobs</span> <span class="o">=</span><span class="p">[]</span>
+	
+	<span class="n">g_truth</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">rot90</span><span class="p">(</span><span class="n">g_truth</span><span class="p">)</span>
+	<span class="n">g_truth</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">rot90</span><span class="p">(</span><span class="n">g_truth</span><span class="p">)</span>   
+	<span class="n">g_truth</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">rot90</span><span class="p">(</span><span class="n">g_truth</span><span class="p">)</span>      
+	<span class="n">mkimg</span><span class="p">(</span><span class="n">g_truth</span><span class="p">,</span><span class="s1">&#39;./Gtruth.tiff&#39;</span><span class="p">)</span>
+	<span class="n">mkimg</span><span class="p">(</span><span class="n">a_or</span>   <span class="p">,</span><span class="s1">&#39;./a_or.tiff&#39;</span><span class="p">)</span>
+	<span class="n">mkimg</span><span class="p">(</span><span class="n">b_or</span>   <span class="p">,</span><span class="s1">&#39;./b_or.tiff&#39;</span><span class="p">)</span>
+	<span class="n">mkimg</span><span class="p">(</span><span class="n">c_or</span>   <span class="p">,</span><span class="s1">&#39;./c_or.tiff&#39;</span><span class="p">)</span>
+	
+	<span class="sd">&quot;&quot;&quot;&quot;</span>
+<span class="sd">	print(&quot;here&quot;)</span>
+<span class="sd">	gmapping = calcErros(a_or,b_or,20)</span>
+<span class="sd">	print(gmapping)</span>
+<span class="sd">	gmappingcrop = np.array(a_or[gmapping[1]:b_or.shape[0]+gmapping[1],gmapping[2]:b_or.shape[1]+gmapping[2]]).astype(np.float32)</span>
+<span class="sd">	mkimg(gmappingcrop   ,&#39;./gmapcropTST.tiff&#39;)</span>
+<span class="sd">	exit(1)</span>
+<span class="sd">	print(&quot;stophere&quot;)</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	
+	<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Mapsizes&quot;</span><span class="p">)</span>
+	<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;gt&quot;</span><span class="p">,</span><span class="n">g_truth</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+	<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;a&quot;</span><span class="p">,</span><span class="n">a_or</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+	<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;b&quot;</span><span class="p">,</span><span class="n">b_or</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+	<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;c&quot;</span><span class="p">,</span><span class="n">c_or</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+	<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;a_or&quot;</span><span class="p">)</span>
+	<span class="n">erroNobs</span>  <span class="o">=</span><span class="n">calcErros</span><span class="p">(</span><span class="n">g_truth</span><span class="p">,</span><span class="n">a_or</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+	<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;b_or&quot;</span><span class="p">)</span>
+	<span class="n">erroKarto</span> <span class="o">=</span><span class="n">calcErros</span><span class="p">(</span><span class="n">g_truth</span><span class="p">,</span><span class="n">b_or</span><span class="p">,</span><span class="mi">60</span><span class="p">)</span>
+	<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;c_or&quot;</span><span class="p">)</span>
+	<span class="n">erroRTAB</span>  <span class="o">=</span><span class="n">calcErros</span><span class="p">(</span><span class="n">g_truth</span><span class="p">,</span><span class="n">c_or</span><span class="p">,</span><span class="mi">60</span><span class="p">)</span>
+	
+	<span class="c1">#	print((erroNobs[0][0],erroKarto[0][0],erroRTAB[0][0]))</span>
+	<span class="c1">#newmapPond(a_or,b_or,c_or,(erroNobs[0][0],erroKarto[0][0],erroRTAB[0][0]))</span>
+	
+	<span class="sd">&quot;&quot;&quot;Achar o mapa final a partir da média ponderada&quot;&quot;&quot;</span>
+	<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;findandmapP&quot;</span><span class="p">)</span>
+	<span class="n">final</span> <span class="o">=</span> <span class="n">findandmapP</span><span class="p">(</span><span class="n">a_or</span><span class="p">,</span><span class="n">b_or</span><span class="p">,</span><span class="n">c_or</span><span class="p">,(</span><span class="n">erroNobs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">erroKarto</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">erroRTAB</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+	<span class="n">mkimg</span><span class="p">(</span><span class="n">final</span><span class="p">,</span><span class="s1">&#39;./finalmap.tiff&#39;</span><span class="p">)</span>
+	<span class="n">errofinal</span> <span class="o">=</span> <span class="p">[]</span>
+	<span class="n">errofinal2</span> <span class="o">=</span> <span class="p">[]</span>
+
+	<span class="n">errofinal</span> <span class="o">=</span> <span class="n">calcErros</span><span class="p">(</span><span class="n">g_truth</span><span class="p">,</span><span class="n">final</span><span class="p">,</span><span class="mi">40</span><span class="p">)</span>
+	<span class="n">errofinal2</span> <span class="o">=</span> <span class="n">calcErros</span><span class="p">(</span><span class="n">final</span><span class="p">,</span><span class="n">g_truth</span><span class="p">,</span><span class="mi">40</span><span class="p">)</span>
+	<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;ErroFinal&quot;</span><span class="p">)</span>
+	<span class="nb">print</span><span class="p">(</span><span class="n">errofinal</span><span class="p">)</span>
+	<span class="nb">print</span><span class="p">(</span><span class="n">errofinal2</span><span class="p">)</span>
+	<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;errofinal&quot;</span><span class="p">)</span>
+	
+	<span class="n">gtruthfinal</span><span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">g_truth</span><span class="p">[</span><span class="n">errofinal</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span><span class="n">final</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="n">errofinal</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">errofinal</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span><span class="n">final</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="n">errofinal</span><span class="p">[</span><span class="mi">2</span><span class="p">]])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+	<span class="n">gtruthfinal2</span><span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">g_truth</span><span class="p">[</span><span class="n">errofinal2</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span><span class="n">final</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="n">errofinal2</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">errofinal2</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span><span class="n">final</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="n">errofinal2</span><span class="p">[</span><span class="mi">2</span><span class="p">]])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+	<span class="n">mkimg</span><span class="p">(</span><span class="n">gtruthfinal</span>   <span class="p">,</span><span class="s1">&#39;./gtruth_crop_final1.tiff&#39;</span><span class="p">)</span>
+	<span class="n">mkimg</span><span class="p">(</span><span class="n">gtruthfinal2</span>   <span class="p">,</span><span class="s1">&#39;./gtruth_crop_final2.tiff&#39;</span><span class="p">)</span>
+	
+	<span class="n">topresults</span><span class="p">(</span><span class="n">erroNobs</span><span class="p">,</span><span class="s1">&#39;Gmapping-GT&#39;</span><span class="p">)</span>
+	<span class="n">topresults</span><span class="p">(</span><span class="n">erroKarto</span><span class="p">,</span><span class="s1">&#39;Karto-GT&#39;</span><span class="p">)</span>
+	<span class="n">topresults</span><span class="p">(</span><span class="n">erroRTAB</span><span class="p">,</span><span class="s1">&#39;RTAB-GT&#39;</span><span class="p">)</span>
+	<span class="n">topresults</span><span class="p">(</span><span class="n">errofinal</span><span class="p">,</span><span class="s1">&#39;errofinal&#39;</span><span class="p">)</span></div>
+	
+
+<div class="viewcode-block" id="processCycle"><a class="viewcode-back" href="../index.html#multislamV2.processCycle">[docs]</a><span class="k">def</span> <span class="nf">processCycle</span><span class="p">(</span><span class="n">array</span><span class="p">,</span><span class="n">mapA</span><span class="p">,</span><span class="n">mapB</span><span class="p">,</span><span class="n">samesize</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot; Auxiliar method for running the matchfinding method.</span>
+<span class="sd">	</span>
+<span class="sd">	:param array: Usualy provided by arrayHalfMaker, containing the decimation values.</span>
+<span class="sd">	:type array: Integer array.</span>
+<span class="sd">	:param mapA: Contains the map values, from the bigger map, usualy Gmapping or RTABMap.</span>
+<span class="sd">	:type mapA: Float Matrice.</span>
+<span class="sd">	:param mapB: Contains the map values, from the smaller map, usualy Karto.</span>
+<span class="sd">	:type mapB: Float Matrice.</span>
+<span class="sd">	:returns: Tuple - (Error value,Start coordinate X,Start coordinate Y,Rotation)</span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="n">soma</span><span class="o">=</span><span class="p">[]</span>
+	<span class="n">varx</span> <span class="o">=</span> <span class="mi">0</span>
+	<span class="n">vary</span> <span class="o">=</span> <span class="mi">0</span>
+	<span class="n">trigger</span> <span class="o">=</span> <span class="mi">0</span>
+	<span class="n">prev</span> <span class="o">=</span> <span class="mi">0</span>
+	<span class="k">if</span><span class="p">(</span><span class="n">samesize</span><span class="o">==</span><span class="mi">1</span><span class="p">):</span>
+		<span class="n">prev</span> <span class="o">=</span><span class="mi">1</span>
+		<span class="n">trigger</span> <span class="o">=</span> <span class="mi">1</span>
+	<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">array</span><span class="p">:</span>
+		<span class="n">soma</span><span class="o">=</span><span class="n">process</span><span class="p">(</span><span class="n">varx</span><span class="p">,</span><span class="n">vary</span><span class="p">,</span><span class="n">i</span><span class="p">,</span><span class="n">prev</span><span class="p">,</span><span class="n">trigger</span><span class="p">,</span><span class="n">mapA</span><span class="p">,</span><span class="n">mapB</span><span class="p">,</span><span class="n">soma</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span> <span class="c1">#START gmap-karto</span>
+		<span class="n">varx</span><span class="o">=</span><span class="n">soma</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+		<span class="n">vary</span><span class="o">=</span><span class="n">soma</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span>
+		<span class="n">trigger</span> <span class="o">=</span> <span class="mi">1</span>
+		<span class="n">prev</span> <span class="o">=</span> <span class="n">i</span>
+		<span class="nb">print</span><span class="p">(</span><span class="n">soma</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+	<span class="n">soma</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>	
+	<span class="k">return</span> <span class="n">soma</span></div>
+	
+<div class="viewcode-block" id="topresults"><a class="viewcode-back" href="../index.html#multislamV2.topresults">[docs]</a><span class="k">def</span> <span class="nf">topresults</span><span class="p">(</span><span class="n">array</span><span class="p">,</span><span class="n">name</span><span class="p">,</span><span class="n">value</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot; Prints N results from the provided array and the total length.</span>
+<span class="sd">	</span>
+<span class="sd">	:param array: Contains the values to be printed.</span>
+<span class="sd">	:type array: Tuple - (Error value,Start coordinate X,Start coordinate Y,Rotation).</span>
+<span class="sd">	:param name: Name of the array.</span>
+<span class="sd">	:type name: String.</span>
+<span class="sd">	:param value: Value of N values to print.</span>
+<span class="sd">	:type value: Integer, default:5.</span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">value</span><span class="p">):</span>
+		<span class="nb">print</span><span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="s1">&#39;-&#39;</span><span class="p">,</span><span class="n">name</span><span class="p">,</span><span class="n">array</span><span class="p">[</span><span class="n">i</span><span class="p">])</span></div>
+	<span class="c1">#print(len(array),&#39;\n&#39;)</span>
+			
+<div class="viewcode-block" id="findandmap"><a class="viewcode-back" href="../index.html#multislamV2.findandmap">[docs]</a><span class="k">def</span> <span class="nf">findandmap</span><span class="p">(</span><span class="n">a_or</span><span class="p">,</span><span class="n">b_or</span><span class="p">,</span><span class="n">c_or</span><span class="p">,</span><span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span> 
+	<span class="sd">&quot;&quot;&quot; Wrapper method that calls the various methods to create the merged map.</span>
+<span class="sd">	</span>
+<span class="sd">	:param array: Usualy provided by arrayHalfMaker, containing the decimation values.</span>
+<span class="sd">	:type array: Integer array.</span>
+<span class="sd">	:param a_or: Contains the map values, from one of the bigger maps, usualy Gmapping.</span>
+<span class="sd">	:type a_or: Float matrix.</span>
+<span class="sd">	:param b_or: Contains the map values, from one of the bigger maps, usualy RTABMap.</span>
+<span class="sd">	:type b_or: Float matrix.</span>
+<span class="sd">	:param c_or: Contains the map values, from the smaller map, usualy Karto.</span>
+<span class="sd">	:type c_or: Float matrix.</span>
+<span class="sd">	:param debug: Contains the map values, from the smaller map, usualy Karto.</span>
+<span class="sd">	:type debug: boolean, default:False.</span>
+<span class="sd">	:returns: Float matrix containing the final map after all calculations</span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="c1">#Verifica se as variaveis não estão vazias.</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">a_or</span><span class="o">.</span><span class="n">size</span> <span class="ow">and</span> <span class="n">b_or</span><span class="o">.</span><span class="n">size</span> <span class="ow">and</span> <span class="n">c_or</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+		
+		<span class="c1">#crio duas listas vazias.</span>
+		<span class="n">somaAB</span><span class="o">=</span><span class="p">[]</span>
+		<span class="n">somaCB</span><span class="o">=</span><span class="p">[]</span>
+		
+		<span class="c1">#Procurar as coordenadas onde os mapas ficam melhor alinhados com translação.</span>
+		<span class="nb">print</span> <span class="p">(</span> <span class="n">a_or</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span><span class="n">c_or</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span><span class="n">b_or</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+		<span class="n">somaAB</span><span class="o">=</span><span class="n">processCycle</span><span class="p">([</span><span class="mi">60</span><span class="p">,</span><span class="mi">30</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span><span class="n">a_or</span><span class="p">,</span><span class="n">b_or</span><span class="p">)</span>
+		<span class="n">somaCB</span><span class="o">=</span><span class="n">processCycle</span><span class="p">([</span><span class="mi">5</span><span class="p">,</span><span class="mi">2</span><span class="p">],</span><span class="n">c_or</span><span class="p">,</span><span class="n">b_or</span><span class="p">)</span> <span class="c1">#START rtab-karto</span>
+		
+		<span class="c1">#Cria se os crops das imagens, baseado nos resultados obtidos com as chamadas as funções process. Com o tamanho do mapa mais pequeno,</span>
+		<span class="c1">#neste caso o mapa do Karto.</span>
+		<span class="n">newmapGM</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">a_or</span><span class="p">[</span><span class="n">somaAB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]:</span><span class="n">b_or</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="n">somaAB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span><span class="n">somaAB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]:</span><span class="n">b_or</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="n">somaAB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+		<span class="n">newmapRT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">c_or</span><span class="p">[</span><span class="n">somaCB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]:</span><span class="n">b_or</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="n">somaCB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span><span class="n">somaCB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]:</span><span class="n">b_or</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="n">somaCB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+		<span class="n">newmapKT</span> <span class="o">=</span> <span class="n">b_or</span>
+		
+		<span class="n">rowsA</span><span class="p">,</span><span class="n">colsA</span> <span class="o">=</span> <span class="n">newmapGM</span><span class="o">.</span><span class="n">shape</span>
+		<span class="n">rowsB</span><span class="p">,</span><span class="n">colsB</span> <span class="o">=</span> <span class="n">newmapRT</span><span class="o">.</span><span class="n">shape</span>
+		<span class="n">rowsC</span><span class="p">,</span><span class="n">colsC</span> <span class="o">=</span> <span class="n">newmapKT</span><span class="o">.</span><span class="n">shape</span>
+
+		<span class="c1">#alinhamento por rotação, entre -ROTMAX graus ate ROTMAX graus. (ROTMAX = 5)</span>
+		<span class="c1">#guarda resultado no vector correspondente.</span>
+		<span class="c1">#Caso ja estejam alinhados, ao fazer rotação para 0, devolve matriz crop original</span>
+		<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">xrange</span><span class="p">(</span><span class="o">-</span><span class="n">ROTMAX</span><span class="p">,</span><span class="n">ROTMAX</span><span class="p">,</span><span class="mi">1</span><span class="p">):</span>
+			<span class="n">A</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getRotationMatrix2D</span><span class="p">((</span><span class="n">colsA</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span><span class="n">rowsA</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span><span class="n">i</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+			<span class="n">C</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getRotationMatrix2D</span><span class="p">((</span><span class="n">colsC</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span><span class="n">rowsC</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span><span class="n">i</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+			<span class="n">rotA</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">warpAffine</span><span class="p">(</span><span class="n">newmapGM</span><span class="p">,</span><span class="n">A</span><span class="p">,(</span><span class="n">colsA</span><span class="p">,</span><span class="n">rowsA</span><span class="p">))</span>
+			<span class="n">rotC</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">warpAffine</span><span class="p">(</span><span class="n">newmapRT</span><span class="p">,</span><span class="n">C</span><span class="p">,(</span><span class="n">colsC</span><span class="p">,</span><span class="n">rowsC</span><span class="p">))</span>
+			
+			<span class="n">somaAB</span><span class="o">=</span><span class="n">process</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="n">rotA</span><span class="p">,</span><span class="n">b_or</span><span class="p">,</span><span class="n">somaAB</span><span class="p">,</span><span class="n">i</span><span class="p">)</span>
+			<span class="n">somaCB</span><span class="o">=</span><span class="n">process</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="n">rotC</span><span class="p">,</span><span class="n">b_or</span><span class="p">,</span><span class="n">somaCB</span><span class="p">,</span><span class="n">i</span><span class="p">)</span>
+		
+
+		
+		<span class="c1">#aplicar parametros da rotação que deu menor erro.</span>
+		<span class="n">A</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getRotationMatrix2D</span><span class="p">((</span><span class="n">colsA</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span><span class="n">rowsA</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span><span class="n">somaAB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">3</span><span class="p">],</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">C</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getRotationMatrix2D</span><span class="p">((</span><span class="n">colsC</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span><span class="n">rowsC</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span><span class="n">somaCB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">3</span><span class="p">],</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">newmapGMROT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">warpAffine</span><span class="p">(</span><span class="n">newmapGM</span><span class="p">,</span><span class="n">A</span><span class="p">,(</span><span class="n">colsA</span><span class="p">,</span><span class="n">rowsA</span><span class="p">)))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+		<span class="n">newmapRTROT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">warpAffine</span><span class="p">(</span><span class="n">newmapRT</span><span class="p">,</span><span class="n">C</span><span class="p">,(</span><span class="n">colsC</span><span class="p">,</span><span class="n">rowsC</span><span class="p">)))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>		
+
+		<span class="c1">#Chamar função para fazer votação dos 3 mapas obtidos.</span>
+		<span class="n">final</span> <span class="o">=</span> <span class="n">newmap</span><span class="p">(</span><span class="n">newmapGMROT</span><span class="p">,</span><span class="n">newmapRTROT</span><span class="p">,</span><span class="n">newmapKT</span><span class="p">)</span>
+		<span class="c1">#mkimg(final,&#39;finalmap.tiff&#39;)</span>
+		<span class="k">if</span><span class="p">(</span><span class="n">debug</span><span class="p">):</span>
+			<span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="s1">&#39;./&#39;</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="s1">&#39;final&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.txt&#39;</span><span class="p">,</span><span class="n">final</span><span class="p">,</span><span class="n">fmt</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">%.0f</span><span class="s1">&#39;</span><span class="p">)</span>
+			<span class="n">mkimg</span><span class="p">(</span><span class="n">final</span><span class="p">,</span><span class="s1">&#39;./&#39;</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="s1">&#39;finalmap&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+			<span class="n">mkimg</span><span class="p">(</span><span class="n">newmapGM</span><span class="p">,</span><span class="s1">&#39;./&#39;</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="s1">&#39;gmcrop&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+			<span class="n">mkimg</span><span class="p">(</span><span class="n">newmapRT</span><span class="p">,</span><span class="s1">&#39;./&#39;</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="s1">&#39;rtcrop&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+			<span class="n">mkimg</span><span class="p">(</span><span class="n">newmapKT</span><span class="p">,</span><span class="s1">&#39;./&#39;</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="s1">&#39;ktcrop&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+			<span class="n">mkimg</span><span class="p">(</span><span class="n">newmapGMROT</span><span class="p">,</span><span class="s1">&#39;./&#39;</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="s1">&#39;gmapROT&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+			<span class="n">mkimg</span><span class="p">(</span><span class="n">newmapRTROT</span><span class="p">,</span><span class="s1">&#39;./&#39;</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="o">+</span><span class="s1">&#39;rtabROT&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+		<span class="n">countSLAMFusion</span> <span class="o">+=</span><span class="mi">1</span>
+		<span class="k">return</span> <span class="n">final</span></div>
+<div class="viewcode-block" id="findandmapP"><a class="viewcode-back" href="../index.html#multislamV2.findandmapP">[docs]</a><span class="k">def</span> <span class="nf">findandmapP</span><span class="p">(</span><span class="n">a_or</span><span class="p">,</span><span class="n">b_or</span><span class="p">,</span><span class="n">c_or</span><span class="p">,</span><span class="n">errors</span><span class="p">,</span><span class="n">debug</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span> 
+	<span class="sd">&quot;&quot;&quot;1- calcErros para </span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="n">rtabmap</span> <span class="o">=</span> <span class="n">calcErros</span><span class="p">(</span><span class="n">c_or</span><span class="p">,</span><span class="n">b_or</span><span class="p">,</span><span class="mi">5</span><span class="p">)</span>
+	<span class="n">gmapping</span> <span class="o">=</span> <span class="n">calcErros</span><span class="p">(</span><span class="n">a_or</span><span class="p">,</span><span class="n">b_or</span><span class="p">,</span><span class="mi">5</span><span class="p">)</span>
+
+	
+	<span class="n">gmappingcrop</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">a_or</span><span class="p">[</span><span class="n">gmapping</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span><span class="n">b_or</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="n">gmapping</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">gmapping</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span><span class="n">b_or</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="n">gmapping</span><span class="p">[</span><span class="mi">2</span><span class="p">]])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+	<span class="n">rtabmapcrop</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">c_or</span><span class="p">[</span><span class="n">rtabmap</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span><span class="n">b_or</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="n">rtabmap</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">rtabmap</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span><span class="n">b_or</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="n">rtabmap</span><span class="p">[</span><span class="mi">2</span><span class="p">]])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+	
+	<span class="n">mkimg</span><span class="p">(</span><span class="n">gmappingcrop</span>   <span class="p">,</span><span class="s1">&#39;./gmapcrop.tiff&#39;</span><span class="p">)</span>
+	<span class="n">mkimg</span><span class="p">(</span><span class="n">rtabmapcrop</span>   <span class="p">,</span><span class="s1">&#39;./rtabcrop.tiff&#39;</span><span class="p">)</span>	
+	
+	<span class="n">rowsA</span><span class="p">,</span><span class="n">colsA</span> <span class="o">=</span> <span class="n">b_or</span><span class="o">.</span><span class="n">shape</span>
+	<span class="n">A</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getRotationMatrix2D</span><span class="p">((</span><span class="n">colsA</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span><span class="n">rowsA</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span><span class="n">gmapping</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span><span class="mi">1</span><span class="p">)</span>
+	<span class="n">C</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getRotationMatrix2D</span><span class="p">((</span><span class="n">colsA</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span><span class="n">rowsA</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span><span class="n">rtabmap</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span><span class="mi">1</span><span class="p">)</span>
+	<span class="n">newmapGMROT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">warpAffine</span><span class="p">(</span><span class="n">gmappingcrop</span><span class="p">,</span><span class="n">A</span><span class="p">,(</span><span class="n">colsA</span><span class="p">,</span><span class="n">rowsA</span><span class="p">)))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+	<span class="n">newmapRTROT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">warpAffine</span><span class="p">(</span><span class="n">rtabmapcrop</span><span class="p">,</span><span class="n">C</span><span class="p">,(</span><span class="n">colsA</span><span class="p">,</span><span class="n">rowsA</span><span class="p">)))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>	
+	<span class="n">mkimg</span><span class="p">(</span><span class="n">newmapGMROT</span>   <span class="p">,</span><span class="s1">&#39;./gmap_crop_rot.tiff&#39;</span><span class="p">)</span>
+	<span class="n">mkimg</span><span class="p">(</span><span class="n">newmapRTROT</span>   <span class="p">,</span><span class="s1">&#39;./rtab_ctop_rot.tiff&#39;</span><span class="p">)</span>	
+	<span class="n">final</span> <span class="o">=</span> <span class="n">newmapPond</span><span class="p">(</span><span class="n">newmapGMROT</span><span class="p">,</span><span class="n">newmapRTROT</span><span class="p">,</span><span class="n">b_or</span><span class="p">,(</span><span class="n">errors</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">errors</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">errors</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span>
+	
+	<span class="k">return</span> <span class="n">final</span></div>
+	
+	
+<div class="viewcode-block" id="findandmapPV1"><a class="viewcode-back" href="../index.html#multislamV2.findandmapPV1">[docs]</a><span class="k">def</span> <span class="nf">findandmapPV1</span><span class="p">(</span><span class="n">a_or</span><span class="p">,</span><span class="n">b_or</span><span class="p">,</span><span class="n">c_or</span><span class="p">,</span><span class="n">errors</span><span class="p">,</span><span class="n">debug</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span> 
+	<span class="sd">&quot;&quot;&quot; Wrapper method that calls the various methods to create the merged map.</span>
+<span class="sd">	</span>
+<span class="sd">	:param array: Usualy provided by arrayHalfMaker, containing the decimation values.</span>
+<span class="sd">	:type array: Integer array.</span>
+<span class="sd">	:param a_or: Contains the map values, from one of the bigger maps, usualy Gmapping.</span>
+<span class="sd">	:type a_or: Float matrix.</span>
+<span class="sd">	:param b_or: Contains the map values, from one of the bigger maps, usualy RTABMap.</span>
+<span class="sd">	:type b_or: Float matrix.</span>
+<span class="sd">	:param c_or: Contains the map values, from the smaller map, usualy Karto.</span>
+<span class="sd">	:type c_or: Float matrix.</span>
+<span class="sd">	:param debug: Contains the map values, from the smaller map, usualy Karto.</span>
+<span class="sd">	:type debug: boolean, default:False.</span>
+<span class="sd">	:returns: Float matrix containing the final map after all calculations</span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="c1">#Verifica se as variaveis não estão vazias.</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">a_or</span><span class="o">.</span><span class="n">size</span> <span class="ow">and</span> <span class="n">b_or</span><span class="o">.</span><span class="n">size</span> <span class="ow">and</span> <span class="n">c_or</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+		
+		<span class="c1">#crio duas listas vazias.</span>
+		<span class="n">somaAB</span><span class="o">=</span><span class="p">[]</span>
+		<span class="n">somaCB</span><span class="o">=</span><span class="p">[]</span>
+		
+		<span class="c1">#Procurar as coordenadas onde os mapas ficam melhor alinhados com translação.</span>
+		<span class="nb">print</span> <span class="p">(</span> <span class="n">a_or</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span><span class="n">c_or</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span><span class="n">b_or</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span><span class="s2">&quot;findandmapP&quot;</span><span class="p">)</span>
+		<span class="n">somaAB</span><span class="o">=</span><span class="n">processCycle</span><span class="p">(</span><span class="n">arrayHalfMaker</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span><span class="n">a_or</span><span class="p">,</span><span class="n">b_or</span><span class="p">)</span>
+		<span class="n">somaCB</span><span class="o">=</span><span class="n">processCycle</span><span class="p">(</span><span class="n">arrayHalfMaker</span><span class="p">(</span><span class="mi">20</span><span class="p">),</span><span class="n">c_or</span><span class="p">,</span><span class="n">b_or</span><span class="p">)</span> <span class="c1">#START rtab-karto</span>
+		
+		<span class="c1">#Cria se os crops das imagens, baseado nos resultados obtidos com as chamadas as funções process. Com o tamanho do mapa mais pequeno,</span>
+		<span class="c1">#neste caso o mapa do Karto.</span>
+		<span class="n">newmapGM</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">a_or</span><span class="p">[</span><span class="n">somaAB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]:</span><span class="n">b_or</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="n">somaAB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span><span class="n">somaAB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]:</span><span class="n">b_or</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="n">somaAB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+		<span class="n">newmapRT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">c_or</span><span class="p">[</span><span class="n">somaCB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]:</span><span class="n">b_or</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="n">somaCB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span><span class="n">somaCB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]:</span><span class="n">b_or</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="n">somaCB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+		<span class="n">newmapKT</span> <span class="o">=</span> <span class="n">b_or</span>
+		
+		<span class="n">rowsA</span><span class="p">,</span><span class="n">colsA</span> <span class="o">=</span> <span class="n">newmapGM</span><span class="o">.</span><span class="n">shape</span>
+		<span class="n">rowsB</span><span class="p">,</span><span class="n">colsB</span> <span class="o">=</span> <span class="n">newmapRT</span><span class="o">.</span><span class="n">shape</span>
+		<span class="n">rowsC</span><span class="p">,</span><span class="n">colsC</span> <span class="o">=</span> <span class="n">newmapKT</span><span class="o">.</span><span class="n">shape</span>
+
+		<span class="c1">#alinhamento por rotação, entre -ROTMAX graus ate ROTMAX graus. (ROTMAX = 5)</span>
+		<span class="c1">#guarda resultado no vector correspondente.</span>
+		<span class="c1">#Caso ja estejam alinhados, ao fazer rotação para 0, devolve matriz crop original</span>
+		<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">xrange</span><span class="p">(</span><span class="o">-</span><span class="n">ROTMAX</span><span class="p">,</span><span class="n">ROTMAX</span><span class="p">,</span><span class="mi">1</span><span class="p">):</span>
+			<span class="n">A</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getRotationMatrix2D</span><span class="p">((</span><span class="n">colsA</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span><span class="n">rowsA</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span><span class="n">i</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+			<span class="n">C</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getRotationMatrix2D</span><span class="p">((</span><span class="n">colsC</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span><span class="n">rowsC</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span><span class="n">i</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+			<span class="n">rotA</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">warpAffine</span><span class="p">(</span><span class="n">newmapGM</span><span class="p">,</span><span class="n">A</span><span class="p">,(</span><span class="n">colsA</span><span class="p">,</span><span class="n">rowsA</span><span class="p">))</span>
+			<span class="n">rotC</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">warpAffine</span><span class="p">(</span><span class="n">newmapRT</span><span class="p">,</span><span class="n">C</span><span class="p">,(</span><span class="n">colsC</span><span class="p">,</span><span class="n">rowsC</span><span class="p">))</span>
+			
+			<span class="n">somaAB</span><span class="o">=</span><span class="n">process</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="n">rotA</span><span class="p">,</span><span class="n">b_or</span><span class="p">,</span><span class="n">somaAB</span><span class="p">,</span><span class="n">i</span><span class="p">)</span>
+			<span class="n">somaCB</span><span class="o">=</span><span class="n">process</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="n">rotC</span><span class="p">,</span><span class="n">b_or</span><span class="p">,</span><span class="n">somaCB</span><span class="p">,</span><span class="n">i</span><span class="p">)</span>
+		
+
+		
+		<span class="c1">#aplicar parametros da rotação que deu menor erro.</span>
+		<span class="n">A</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getRotationMatrix2D</span><span class="p">((</span><span class="n">colsA</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span><span class="n">rowsA</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span><span class="n">somaAB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">3</span><span class="p">],</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">C</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getRotationMatrix2D</span><span class="p">((</span><span class="n">colsC</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span><span class="n">rowsC</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span><span class="n">somaCB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">3</span><span class="p">],</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">newmapGMROT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">warpAffine</span><span class="p">(</span><span class="n">newmapGM</span><span class="p">,</span><span class="n">A</span><span class="p">,(</span><span class="n">colsA</span><span class="p">,</span><span class="n">rowsA</span><span class="p">)))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+		<span class="n">newmapRTROT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">warpAffine</span><span class="p">(</span><span class="n">newmapRT</span><span class="p">,</span><span class="n">C</span><span class="p">,(</span><span class="n">colsC</span><span class="p">,</span><span class="n">rowsC</span><span class="p">)))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>		
+
+		<span class="c1">#Chamar função para fazer média ponderada dos 3 mapas obtidos.</span>
+		<span class="n">final</span> <span class="o">=</span> <span class="n">newmapPond</span><span class="p">(</span><span class="n">newmapGMROT</span><span class="p">,</span><span class="n">newmapRTROT</span><span class="p">,</span><span class="n">newmapKT</span><span class="p">,(</span><span class="n">errors</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">errors</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">errors</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span>
+		<span class="c1">#mkimg(final,&#39;finalmap.tiff&#39;)</span>
+		<span class="n">countSLAMFusion</span> <span class="o">=</span> <span class="mi">1</span>
+		<span class="k">if</span><span class="p">(</span><span class="n">debug</span><span class="p">):</span>
+			<span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="s1">&#39;./2/&#39;</span><span class="o">+</span><span class="s1">&#39;final&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.txt&#39;</span><span class="p">,</span><span class="n">final</span><span class="p">,</span><span class="n">fmt</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">%.0f</span><span class="s1">&#39;</span><span class="p">)</span>
+			<span class="n">mkimg</span><span class="p">(</span><span class="n">final</span><span class="p">,</span><span class="s1">&#39;./2/&#39;</span><span class="o">+</span><span class="s1">&#39;finalmap&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+			<span class="n">mkimg</span><span class="p">(</span><span class="n">newmapGM</span><span class="p">,</span><span class="s1">&#39;./2/&#39;</span><span class="o">+</span><span class="s1">&#39;gmcrop&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+			<span class="n">mkimg</span><span class="p">(</span><span class="n">newmapRT</span><span class="p">,</span><span class="s1">&#39;./2/&#39;</span><span class="o">+</span><span class="s1">&#39;rtcrop&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+			<span class="n">mkimg</span><span class="p">(</span><span class="n">newmapKT</span><span class="p">,</span><span class="s1">&#39;./2/&#39;</span><span class="o">+</span><span class="s1">&#39;ktcrop&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+			<span class="n">mkimg</span><span class="p">(</span><span class="n">newmapGMROT</span><span class="p">,</span><span class="s1">&#39;./2/&#39;</span><span class="o">+</span><span class="s1">&#39;gmapROT&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+			<span class="n">mkimg</span><span class="p">(</span><span class="n">newmapRTROT</span><span class="p">,</span><span class="s1">&#39;./2/&#39;</span><span class="o">+</span><span class="s1">&#39;rtabROT&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+		<span class="c1">#countSLAMFusion +=1</span>
+		<span class="k">return</span> <span class="n">final</span></div>
+
+<div class="viewcode-block" id="calcErros"><a class="viewcode-back" href="../index.html#multislamV2.calcErros">[docs]</a><span class="k">def</span> <span class="nf">calcErros</span><span class="p">(</span><span class="n">a_or</span><span class="p">,</span><span class="n">b_or</span><span class="p">,</span><span class="n">halfmaker</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span><span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span> 
+	<span class="sd">&quot;&quot;&quot; Wrapper method that calls the various methods to create the merged map.</span>
+<span class="sd">	</span>
+<span class="sd">	:param array: Usualy provided by arrayHalfMaker, containing the decimation values.</span>
+<span class="sd">	:type array: Integer array.</span>
+<span class="sd">	:param a_or: Contains the map values, from one of the bigger maps, usualy Gmapping.</span>
+<span class="sd">	:type a_or: Float matrix.</span>
+<span class="sd">	:param b_or: Contains the map values, from one of the bigger maps, usualy RTABMap.</span>
+<span class="sd">	:type b_or: Float matrix.</span>
+<span class="sd">	:param c_or: Contains the map values, from the smaller map, usualy Karto.</span>
+<span class="sd">	:type c_or: Float matrix.</span>
+<span class="sd">	:param debug: Contains the map values, from the smaller map, usualy Karto.</span>
+<span class="sd">	:type debug: boolean, default:False.</span>
+<span class="sd">	:returns: Float matrix containing the final map after all calculations</span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="c1">#Verifica se as variaveis não estão vazias.</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">a_or</span><span class="o">.</span><span class="n">size</span> <span class="ow">and</span> <span class="n">b_or</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+		
+		<span class="c1">#crio duas listas vazias.</span>
+		<span class="n">somaAB</span><span class="o">=</span><span class="p">[]</span>
+		
+		<span class="c1">#Procurar as coordenadas onde os mapas ficam melhor alinhados com translação.</span>
+		<span class="n">var</span> <span class="o">=</span> <span class="mi">0</span>
+		<span class="k">if</span><span class="p">(</span><span class="n">halfmaker</span><span class="o">==</span><span class="mi">1</span><span class="p">):</span>
+			<span class="n">var</span><span class="o">=</span><span class="mi">1</span>
+
+		<span class="n">somaAB</span><span class="o">=</span><span class="n">processCycle</span><span class="p">(</span><span class="n">arrayHalfMaker</span><span class="p">(</span><span class="n">halfmaker</span><span class="p">),</span><span class="n">a_or</span><span class="p">,</span><span class="n">b_or</span><span class="p">,</span><span class="n">var</span><span class="p">)</span>
+
+		
+		<span class="c1">#Cria se os crops das imagens, baseado nos resultados obtidos com as chamadas as funções process. Com o tamanho do mapa mais pequeno,</span>
+		<span class="c1">#neste caso o mapa do Karto.</span>
+		<span class="n">a_crop</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">a_or</span><span class="p">[</span><span class="n">somaAB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]:</span><span class="n">b_or</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="n">somaAB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span><span class="n">somaAB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]:</span><span class="n">b_or</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="n">somaAB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+		<span class="n">rowsA</span><span class="p">,</span><span class="n">colsA</span> <span class="o">=</span> <span class="n">a_crop</span><span class="o">.</span><span class="n">shape</span>
+		<span class="n">bestposX</span> <span class="o">=</span><span class="n">somaAB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+		<span class="n">bestposY</span> <span class="o">=</span><span class="n">somaAB</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span>
+		<span class="nb">print</span><span class="p">(</span><span class="n">bestposX</span><span class="p">,</span><span class="n">bestposY</span><span class="p">)</span>
+		<span class="c1">#alinhamento por rotação, entre -ROTMAX graus ate ROTMAX graus. (ROTMAX = 5)</span>
+		<span class="c1">#guarda resultado no vector correspondente.</span>
+		<span class="c1">#Caso ja estejam alinhados, ao fazer rotação para 0, devolve matriz crop original</span>
+
+		<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">xrange</span><span class="p">(</span><span class="o">-</span><span class="n">ROTMAX</span><span class="p">,</span><span class="n">ROTMAX</span><span class="p">,</span><span class="mi">1</span><span class="p">):</span>
+			<span class="n">A</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getRotationMatrix2D</span><span class="p">((</span><span class="n">colsA</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span><span class="n">rowsA</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span><span class="n">i</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+			<span class="n">rotA</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">warpAffine</span><span class="p">(</span><span class="n">a_crop</span><span class="p">,</span><span class="n">A</span><span class="p">,(</span><span class="n">colsA</span><span class="p">,</span><span class="n">rowsA</span><span class="p">))</span>	
+			<span class="c1">#somaAB=processCycle(arrayHalfMaker(1),rotA,b_or,1)</span>
+			<span class="n">somaAB</span><span class="o">=</span><span class="n">process</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="n">rotA</span><span class="p">,</span><span class="n">b_or</span><span class="p">,</span><span class="n">somaAB</span><span class="p">,</span><span class="n">i</span><span class="p">,</span><span class="n">bestposX</span><span class="p">,</span><span class="n">bestposY</span><span class="p">)</span>
+		<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;blah&quot;</span><span class="p">)</span>
+		<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">somaAB</span><span class="p">)):</span>
+			<span class="nb">print</span><span class="p">(</span><span class="n">somaAB</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+		<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;blah&quot;</span><span class="p">)</span>
+		
+		<span class="k">if</span><span class="p">(</span><span class="n">debug</span><span class="p">):</span>
+			<span class="n">countSLAMFusion</span> <span class="o">=</span> <span class="mi">1</span>
+			<span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="s1">&#39;./2/&#39;</span><span class="o">+</span><span class="s1">&#39;final&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.txt&#39;</span><span class="p">,</span><span class="n">final</span><span class="p">,</span><span class="n">fmt</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">%.0f</span><span class="s1">&#39;</span><span class="p">)</span>
+			<span class="n">mkimg</span><span class="p">(</span><span class="n">final</span><span class="p">,</span><span class="s1">&#39;./2/&#39;</span><span class="o">+</span><span class="s1">&#39;finalmap&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+			<span class="n">mkimg</span><span class="p">(</span><span class="n">newmapGM</span><span class="p">,</span><span class="s1">&#39;./2/&#39;</span><span class="o">+</span><span class="s1">&#39;gmcrop&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+			<span class="n">mkimg</span><span class="p">(</span><span class="n">newmapRT</span><span class="p">,</span><span class="s1">&#39;./2/&#39;</span><span class="o">+</span><span class="s1">&#39;rtcrop&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+			<span class="n">mkimg</span><span class="p">(</span><span class="n">newmapKT</span><span class="p">,</span><span class="s1">&#39;./2/&#39;</span><span class="o">+</span><span class="s1">&#39;ktcrop&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+			<span class="n">mkimg</span><span class="p">(</span><span class="n">newmapGMROT</span><span class="p">,</span><span class="s1">&#39;./2/&#39;</span><span class="o">+</span><span class="s1">&#39;gmapROT&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+			<span class="n">mkimg</span><span class="p">(</span><span class="n">newmapRTROT</span><span class="p">,</span><span class="s1">&#39;./2/&#39;</span><span class="o">+</span><span class="s1">&#39;rtabROT&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">countSLAMFusion</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;.tiff&#39;</span><span class="p">)</span>
+		<span class="c1">#countSLAMFusion +=1</span>
+		<span class="n">somaAB</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+		<span class="k">return</span> <span class="n">somaAB</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+					
+					
+<span class="n">ctx</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">create_some_context</span><span class="p">()</span>
+<span class="n">queue</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">CommandQueue</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span><span class="n">properties</span><span class="o">=</span><span class="n">cl</span><span class="o">.</span><span class="n">command_queue_properties</span><span class="o">.</span><span class="n">PROFILING_ENABLE</span><span class="p">)</span>
+<span class="n">mf</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">mem_flags</span>
+<span class="n">prg</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">Program</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">__kernel void quadraticdif(__global const float *a, __global const float *b, __global float *resfloat,__global int * numcola) {</span>
+<span class="s2">  /*int row = get_global_id(0);</span>
+<span class="s2">  int col = get_global_id(1);</span>
+<span class="s2">  int address = ((row)*(numcola[0])) + (col);*/</span>
+<span class="s2">  int totala = numcola[0]*numcola[1];</span>
+<span class="s2">  int count;</span>
+<span class="s2">  float j=0;</span>
+<span class="s2">  for(count=0;count&lt;totala;count++){</span>
+<span class="s2">	 j =j+(a[count]-b[count])*(a[count]-b[count]);</span>
+<span class="s2">  }</span>
+<span class="s2">	resfloat[0] = j/totala;</span>
+<span class="s2">}</span>
+<span class="s2">__kernel void clr(__global int *res,__global int * numcola) {</span>
+<span class="s2">  int totala = numcola[0]*numcola[1];</span>
+<span class="s2">  int count;</span>
+<span class="s2">  float j=0;</span>
+<span class="s2">  for(count=0;count&lt;totala;count++){</span>
+<span class="s2">	res[count] = NULL;</span>
+<span class="s2">	}</span>
+<span class="s2">}</span>
+
+<span class="s2">__kernel void average(__global const float *a, __global const float *b,__global const float *c, __global float *res,__global int * numcola) {</span>
+<span class="s2">  int totala = numcola[0]*numcola[1];</span>
+<span class="s2">  int count;</span>
+<span class="s2">  float j=0;</span>
+<span class="s2">  for(count=0;count&lt;totala;count++){</span>
+<span class="s2">	</span>
+<span class="s2">	if (a[count] == b[count] || a[count]==c[count])</span>
+<span class="s2">        res[count]=a[count];</span>
+<span class="s2">	else if (b[count] == c[count])</span>
+<span class="s2">        res[count]=b[count];</span>
+<span class="s2">    else res[count]=1;</span>
+<span class="s2">    //else res[count]=round((a[count]+b[count]+c[count])/3.0);</span>
+
+<span class="s2">  }</span>
+<span class="s2">}</span>
+<span class="s2">  </span>
+<span class="s2">__kernel void ponderedaverageV1(__global const float *a, __global const float *b,__global const float *c, __global float *res,__global int * numcola,__global float *errors) {</span>
+<span class="s2">  int totala = numcola[0]*numcola[1];</span>
+<span class="s2">  float e1 = errors[0],e2 = errors[1],e3 = errors[2];</span>
+<span class="s2">  float s = e1+e2+e3;</span>
+<span class="s2">  float s1 = s-e1,  s2 = s-e2, s3 = s-e3;</span>
+<span class="s2">  s *= 2;</span>
+<span class="s2">  int count;</span>
+<span class="s2">  float j=0;</span>
+<span class="s2">  for(count=0;count&lt;totala;count++){</span>
+<span class="s2">	res[count]=round( ( (s1*a[count]) + (s2*b[count]) + (s3*c[count])) / s );</span>
+<span class="s2">  }</span>
+
+<span class="s2">}</span>
+
+<span class="s2">__kernel void ponderedaverage(__global const float *a, __global const float *b,__global const float *c, __global float *res,__global int * numcola,__global float *errors) {</span>
+<span class="s2">  int totala = numcola[0]*numcola[1];</span>
+<span class="s2">  float e1 = errors[0],e2 = errors[1],e3 = errors[2];</span>
+<span class="s2">  float s = e1+e2+e3;</span>
+<span class="s2">  float s1 = s-e1,  s2 = s-e2, s3 = s-e3;</span>
+<span class="s2">  float w1,w2,w3;</span>
+<span class="s2">  float p1=7 , p2=2 ,p3=1;</span>
+<span class="s2">  float div = p1+p2+p3;</span>
+<span class="s2">  if(s1 &gt; s2 &amp;&amp; s1&gt;s3 &amp;&amp; s2&gt;s3) // 123</span>
+<span class="s2">  {</span>
+<span class="s2">	w1=p1;</span>
+<span class="s2">	w2=p2;</span>
+<span class="s2">	w3=p3;</span>
+<span class="s2">  }</span>
+<span class="s2">  else if(s1 &gt; s2 &amp;&amp; s1&gt;s3 &amp;&amp; s3&gt;s2) // 132</span>
+<span class="s2">  {</span>
+<span class="s2">	w1=p1;</span>
+<span class="s2">	w2=p3;</span>
+<span class="s2">	w3=p2;</span>
+<span class="s2">  }</span>
+<span class="s2">  else if(s2 &gt; s1 &amp;&amp; s2&gt;s3 &amp;&amp; s1&gt;s3) // 213</span>
+<span class="s2">  {</span>
+<span class="s2">	w1=p2;</span>
+<span class="s2">	w2=p1;</span>
+<span class="s2">	w3=p3;</span>
+<span class="s2">  }</span>
+<span class="s2">   else if(s2 &gt; s1 &amp;&amp; s2&gt;s3 &amp;&amp; s3&gt;s1) // 231</span>
+<span class="s2">  {</span>
+<span class="s2">	w1=p3;</span>
+<span class="s2">	w2=p1;</span>
+<span class="s2">	w3=p2;</span>
+<span class="s2">  }</span>
+<span class="s2"> </span>
+<span class="s2">   else if(s3 &gt; s1 &amp;&amp; s3&gt;s2 &amp;&amp; s1&gt;s2) // 312</span>
+<span class="s2">  {</span>
+<span class="s2">	w1=p2;</span>
+<span class="s2">	w2=p3;</span>
+<span class="s2">	w3=p1;</span>
+<span class="s2">  }</span>
+<span class="s2">   else if(s3 &gt; s1 &amp;&amp; s3&gt;s2 &amp;&amp; s2&gt;s1) // 321</span>
+<span class="s2">  {</span>
+<span class="s2">	w1=p3;</span>
+<span class="s2">	w2=p2;</span>
+<span class="s2">	w3=p1;</span>
+<span class="s2">  }</span>
+<span class="s2">  int count;</span>
+<span class="s2">  float j=0;</span>
+<span class="s2">  for(count=0;count&lt;totala;count++){</span>
+<span class="s2">	res[count]=round( ( (w1*a[count]) + (w2*b[count]) + (w3*c[count])) / div );</span>
+<span class="s2">  }</span>
+
+<span class="s2">}</span>
+
+<span class="s2">&quot;&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+
+<div class="viewcode-block" id="process"><a class="viewcode-back" href="../index.html#multislamV2.process">[docs]</a><span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">varx</span><span class="p">,</span><span class="n">vary</span><span class="p">,</span><span class="n">step</span><span class="p">,</span><span class="n">prestep</span><span class="p">,</span><span class="n">trigger</span><span class="p">,</span><span class="n">firstmap</span><span class="p">,</span><span class="n">secmap</span><span class="p">,</span><span class="n">soma</span><span class="p">,</span><span class="n">rot</span><span class="p">,</span><span class="n">rotx</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">roty</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+	<span class="sd">&quot;&quot;&quot; Wrapper method that calls the various methods to create the merged map.</span>
+<span class="sd">	</span>
+<span class="sd">	:param varx: Start value for coordinate X.</span>
+<span class="sd">	:type varx: Integer.</span>
+<span class="sd">	:param vary: Start value for coordinate Y.</span>
+<span class="sd">	:type vary: Integer.</span>
+<span class="sd">	:param step: Step value for the the cycles.</span>
+<span class="sd">	:type step: Integer.</span>
+<span class="sd">	:param prestep: Step value for the previous call of the method, At start is 0.</span>
+<span class="sd">	:type prestep: Integer.</span>
+<span class="sd">	:param trigger: A trigger value, at first run it is 0, following runs it is 1.</span>
+<span class="sd">	:type trigger: Integer.</span>
+<span class="sd">	:param firstmap: Contains the map values, from one of the bigger maps, usualy Gmapping.</span>
+<span class="sd">	:type firstmap: Float matrix.</span>
+<span class="sd">	:param secmap: Contains the map values, from the smaller map, usualy Karto.</span>
+<span class="sd">	:type secmap: Float matrix.</span>
+<span class="sd">	:param soma: The array where the calculations are saved.</span>
+<span class="sd">	:type soma: Tuple array with values (Error value,Start coordinate X,Start coordinate Y,Rotation).</span>
+<span class="sd">	:param rot: Rotation value.</span>
+<span class="sd">	:type rot: Integer.</span>
+<span class="sd">	:returns: The original Tuple array with the new calculations.</span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="n">varx</span><span class="o">=</span><span class="n">varx</span><span class="o">-</span><span class="n">prestep</span>
+	<span class="k">if</span><span class="p">(</span><span class="n">varx</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">):</span>
+		<span class="n">varx</span><span class="o">=</span><span class="mi">0</span>
+	<span class="n">vary</span><span class="o">=</span><span class="n">vary</span><span class="o">-</span><span class="n">prestep</span>
+	<span class="k">if</span><span class="p">(</span><span class="n">vary</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">):</span>
+		<span class="n">vary</span><span class="o">=</span><span class="mi">0</span>
+	<span class="k">if</span><span class="p">(</span><span class="n">trigger</span><span class="o">==</span><span class="mi">0</span><span class="p">):</span>
+		<span class="n">rang1</span><span class="o">=</span><span class="n">firstmap</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="n">secmap</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+		<span class="n">rang2</span><span class="o">=</span><span class="n">firstmap</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">secmap</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+	<span class="k">else</span><span class="p">:</span>
+		<span class="n">rang1</span><span class="o">=</span><span class="n">varx</span><span class="o">+</span><span class="n">prestep</span><span class="o">*</span><span class="mi">2</span>
+		<span class="n">rang2</span><span class="o">=</span><span class="n">vary</span><span class="o">+</span><span class="n">prestep</span><span class="o">*</span><span class="mi">2</span>
+		
+	<span class="k">if</span><span class="p">(</span><span class="n">rang1</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">):</span>
+		<span class="n">rang1</span><span class="o">=</span><span class="mi">1</span>
+	<span class="k">if</span><span class="p">(</span><span class="n">rang2</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">):</span>
+		<span class="n">rang2</span><span class="o">=</span><span class="mi">1</span>
+		
+	<span class="k">for</span> <span class="n">valX</span> <span class="ow">in</span> <span class="n">xrange</span><span class="p">(</span><span class="n">varx</span><span class="p">,</span><span class="n">rang1</span><span class="p">,</span><span class="n">step</span><span class="p">):</span>
+		<span class="k">for</span> <span class="n">valY</span> <span class="ow">in</span> <span class="n">xrange</span><span class="p">(</span><span class="n">vary</span><span class="p">,</span><span class="n">rang2</span><span class="p">,</span><span class="n">step</span><span class="p">):</span>
+			<span class="c1">#print (valX, &#39;in&#39;, rang1-1, &#39;and&#39;, valY,&#39;in&#39;,rang2-1,&#39;                      &#39;, end=&#39;\r&#39;)	</span>
+			<span class="c1">### INPUT VARS ###)</span>
+			<span class="n">b_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">secmap</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+			<span class="n">a_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">firstmap</span><span class="p">[</span><span class="n">valX</span><span class="p">:</span><span class="n">secmap</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="n">valX</span><span class="p">,</span><span class="n">valY</span><span class="p">:</span><span class="n">secmap</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="n">valY</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+			
+			<span class="n">numcola</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">a_np</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span> <span class="c1"># create array that is the tuple a_np-size (X,Y)</span>
+			<span class="c1">### INPUT VARS ###</span>
+			
+			<span class="c1">### TEST PRINTS ###</span>
+			<span class="c1">### TEST PRINTS ###</span>
+			
+			<span class="c1">### INPUT BUFFERS ###</span>
+			<span class="n">a_buf</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">Buffer</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">mf</span><span class="o">.</span><span class="n">READ_ONLY</span> <span class="o">|</span> <span class="n">mf</span><span class="o">.</span><span class="n">COPY_HOST_PTR</span><span class="p">,</span> <span class="n">hostbuf</span><span class="o">=</span><span class="n">a_np</span><span class="p">)</span>
+			<span class="n">b_buf</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">Buffer</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">mf</span><span class="o">.</span><span class="n">READ_ONLY</span> <span class="o">|</span> <span class="n">mf</span><span class="o">.</span><span class="n">COPY_HOST_PTR</span><span class="p">,</span> <span class="n">hostbuf</span><span class="o">=</span><span class="n">b_np</span><span class="p">)</span>
+			<span class="n">numcola_buf</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">Buffer</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">mf</span><span class="o">.</span><span class="n">READ_ONLY</span> <span class="o">|</span> <span class="n">mf</span><span class="o">.</span><span class="n">COPY_HOST_PTR</span><span class="p">,</span> <span class="n">hostbuf</span><span class="o">=</span><span class="n">numcola</span><span class="p">)</span>
+			<span class="c1">### INPUT BUFFERS ###</span>
+			
+			
+			<span class="c1">### OUTPUT VARS ###</span>
+			<span class="n">resint_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+			<span class="c1">### OUTPUT VARS ###</span>
+			
+			<span class="c1">### OUTPUT BUFFERS ###</span>
+			<span class="n">resint_buf</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">Buffer</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">mf</span><span class="o">.</span><span class="n">WRITE_ONLY</span><span class="p">,</span> <span class="n">resint_np</span><span class="o">.</span><span class="n">nbytes</span><span class="p">)</span>
+			<span class="c1">### OUTPUT BUFFERS ###</span>
+			
+			<span class="c1">###EXECUTE###</span>
+
+			<span class="n">exe_bla</span> <span class="o">=</span> <span class="n">prg</span><span class="o">.</span><span class="n">quadraticdif</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="n">a_np</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">a_buf</span><span class="p">,</span> <span class="n">b_buf</span><span class="p">,</span><span class="n">resint_buf</span><span class="p">,</span><span class="n">numcola_buf</span><span class="p">)</span>
+			<span class="n">cl</span><span class="o">.</span><span class="n">enqueue_copy</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="n">resint_np</span><span class="p">,</span> <span class="n">resint_buf</span><span class="p">)</span>
+			<span class="c1">#print(a_np.size)</span>
+			<span class="c1">#print(a_np.shape)</span>
+			<span class="k">if</span><span class="p">(</span><span class="n">valX</span> <span class="o">==</span><span class="mi">0</span> <span class="ow">and</span> <span class="n">valY</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+				<span class="n">soma</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">resint_np</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">rotx</span><span class="p">,</span><span class="n">roty</span><span class="p">,</span><span class="n">rot</span><span class="p">))</span>
+			<span class="k">else</span><span class="p">:</span>
+				<span class="n">soma</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">resint_np</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">valX</span><span class="p">,</span><span class="n">valY</span><span class="p">,</span><span class="n">rot</span><span class="p">))</span>
+			<span class="c1">#print(1e-9*(exe_bla.profile.end-exe_bla.profile.start))</span>
+			<span class="c1">###EXECUTE</span>
+	<span class="n">soma</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+
+	<span class="k">return</span> <span class="n">soma</span></div>
+
+<div class="viewcode-block" id="newmap"><a class="viewcode-back" href="../index.html#multislamV2.newmap">[docs]</a><span class="k">def</span> <span class="nf">newmap</span><span class="p">(</span><span class="n">Fmap</span><span class="p">,</span><span class="n">Smap</span><span class="p">,</span><span class="n">Tmap</span><span class="p">):</span>	
+	<span class="sd">&quot;&quot;&quot; Method that creates the final merged map.</span>
+<span class="sd">	</span>
+<span class="sd">	:param trigger: A trigger value, at first run it is 0, following runs it is 1.</span>
+<span class="sd">	:type trigger: Integer.</span>
+<span class="sd">	:param Fmap: Contains the map values, from one of the bigger maps, usualy Gmapping.</span>
+<span class="sd">	:type Fmap: Float matrix.</span>
+<span class="sd">	:param Smap: Contains the map values, from the smaller map, usualy Karto.</span>
+<span class="sd">	:type Smap: Float matrix.</span>
+<span class="sd">	:param Tmap: Contains the map values, from the smaller map, usualy Karto.</span>
+<span class="sd">	:type Tmap: Float matrix.</span>
+<span class="sd">	:returns: The final map-merged matrix.</span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="n">a_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Fmap</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+	<span class="n">b_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Smap</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+	<span class="n">c_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Tmap</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+	<span class="n">numcola</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">a_np</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+	<span class="c1">### INPUT VARS ###</span>
+	
+	<span class="c1">### TEST PRINTS ###</span>
+	<span class="c1">### TEST PRINTS ###</span>
+	
+	<span class="c1">### INPUT BUFFERS ###</span>
+	<span class="n">a_buf</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">Buffer</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">mf</span><span class="o">.</span><span class="n">READ_ONLY</span> <span class="o">|</span> <span class="n">mf</span><span class="o">.</span><span class="n">COPY_HOST_PTR</span><span class="p">,</span> <span class="n">hostbuf</span><span class="o">=</span><span class="n">a_np</span><span class="p">)</span>
+	<span class="n">b_buf</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">Buffer</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">mf</span><span class="o">.</span><span class="n">READ_ONLY</span> <span class="o">|</span> <span class="n">mf</span><span class="o">.</span><span class="n">COPY_HOST_PTR</span><span class="p">,</span> <span class="n">hostbuf</span><span class="o">=</span><span class="n">b_np</span><span class="p">)</span>
+	<span class="n">c_buf</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">Buffer</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">mf</span><span class="o">.</span><span class="n">READ_ONLY</span> <span class="o">|</span> <span class="n">mf</span><span class="o">.</span><span class="n">COPY_HOST_PTR</span><span class="p">,</span> <span class="n">hostbuf</span><span class="o">=</span><span class="n">c_np</span><span class="p">)</span>
+	<span class="n">numcola_buf</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">Buffer</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">mf</span><span class="o">.</span><span class="n">READ_ONLY</span> <span class="o">|</span> <span class="n">mf</span><span class="o">.</span><span class="n">COPY_HOST_PTR</span><span class="p">,</span> <span class="n">hostbuf</span><span class="o">=</span><span class="n">numcola</span><span class="p">)</span>
+	<span class="c1">### INPUT BUFFERS ###</span>
+	
+	
+	<span class="c1">### OUTPUT VARS ###</span>
+	<span class="n">resint_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">a_np</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+	<span class="c1">### OUTPUT VARS ###</span>
+	
+	<span class="c1">### OUTPUT BUFFERS ###</span>
+	<span class="n">resint_buf</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">Buffer</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">mf</span><span class="o">.</span><span class="n">WRITE_ONLY</span><span class="p">,</span> <span class="n">resint_np</span><span class="o">.</span><span class="n">nbytes</span><span class="p">)</span>
+	<span class="c1">### OUTPUT BUFFERS ###</span>
+	
+	<span class="c1">###EXECUTE###</span>
+	<span class="n">prg</span><span class="o">.</span><span class="n">clr</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="n">a_np</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span><span class="n">resint_buf</span><span class="p">,</span><span class="n">numcola_buf</span><span class="p">)</span>
+	<span class="n">cl</span><span class="o">.</span><span class="n">enqueue_copy</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="n">resint_np</span><span class="p">,</span> <span class="n">resint_buf</span><span class="p">)</span>
+	
+	<span class="n">exe_bla</span> <span class="o">=</span><span class="n">prg</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="n">a_np</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">a_buf</span><span class="p">,</span> <span class="n">b_buf</span><span class="p">,</span><span class="n">c_buf</span><span class="p">,</span><span class="n">resint_buf</span><span class="p">,</span><span class="n">numcola_buf</span><span class="p">)</span>
+	<span class="n">cl</span><span class="o">.</span><span class="n">enqueue_copy</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="n">resint_np</span><span class="p">,</span> <span class="n">resint_buf</span><span class="p">)</span>
+	<span class="k">return</span> <span class="n">resint_np</span></div>
+	<span class="c1">#print(1e-9*(exe_bla.profile.end-exe_bla.profile.start))</span>
+	<span class="c1">###EXECUTE</span>
+
+<div class="viewcode-block" id="newmapPond"><a class="viewcode-back" href="../index.html#multislamV2.newmapPond">[docs]</a><span class="k">def</span> <span class="nf">newmapPond</span><span class="p">(</span><span class="n">Fmap</span><span class="p">,</span><span class="n">Smap</span><span class="p">,</span><span class="n">Tmap</span><span class="p">,</span><span class="n">errors</span><span class="p">):</span>	
+	<span class="sd">&quot;&quot;&quot; Method that creates the final merged map.</span>
+<span class="sd">	</span>
+<span class="sd">	:param trigger: A trigger value, at first run it is 0, following runs it is 1.</span>
+<span class="sd">	:type trigger: Integer.</span>
+<span class="sd">	:param Fmap: Contains the map values, from one of the bigger maps, usualy Gmapping.</span>
+<span class="sd">	:type Fmap: Float matrix.</span>
+<span class="sd">	:param Smap: Contains the map values, from the smaller map, usualy Karto.</span>
+<span class="sd">	:type Smap: Float matrix.</span>
+<span class="sd">	:param Tmap: Contains the map values, from the smaller map, usualy Karto.</span>
+<span class="sd">	:type Tmap: Float matrix.</span>
+<span class="sd">	:returns: The final map-merged matrix.</span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	
+	<span class="n">a_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Fmap</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+	<span class="n">b_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Smap</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+	<span class="n">c_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Tmap</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+	<span class="n">numcola</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">a_np</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+	<span class="n">errors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">errors</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">errors</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">errors</span><span class="p">[</span><span class="mi">2</span><span class="p">]])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+	<span class="c1">### INPUT VARS ###</span>
+	
+	<span class="c1">### TEST PRINTS ###</span>
+	<span class="c1">### TEST PRINTS ###</span>
+	
+	<span class="c1">### INPUT BUFFERS ###</span>
+	<span class="n">a_buf</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">Buffer</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">mf</span><span class="o">.</span><span class="n">READ_ONLY</span> <span class="o">|</span> <span class="n">mf</span><span class="o">.</span><span class="n">COPY_HOST_PTR</span><span class="p">,</span> <span class="n">hostbuf</span><span class="o">=</span><span class="n">a_np</span><span class="p">)</span>
+	<span class="n">b_buf</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">Buffer</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">mf</span><span class="o">.</span><span class="n">READ_ONLY</span> <span class="o">|</span> <span class="n">mf</span><span class="o">.</span><span class="n">COPY_HOST_PTR</span><span class="p">,</span> <span class="n">hostbuf</span><span class="o">=</span><span class="n">b_np</span><span class="p">)</span>
+	<span class="n">c_buf</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">Buffer</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">mf</span><span class="o">.</span><span class="n">READ_ONLY</span> <span class="o">|</span> <span class="n">mf</span><span class="o">.</span><span class="n">COPY_HOST_PTR</span><span class="p">,</span> <span class="n">hostbuf</span><span class="o">=</span><span class="n">c_np</span><span class="p">)</span>
+	<span class="n">numcola_buf</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">Buffer</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">mf</span><span class="o">.</span><span class="n">READ_ONLY</span> <span class="o">|</span> <span class="n">mf</span><span class="o">.</span><span class="n">COPY_HOST_PTR</span><span class="p">,</span> <span class="n">hostbuf</span><span class="o">=</span><span class="n">numcola</span><span class="p">)</span>
+	<span class="n">errors_buf</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">Buffer</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">mf</span><span class="o">.</span><span class="n">READ_ONLY</span> <span class="o">|</span> <span class="n">mf</span><span class="o">.</span><span class="n">COPY_HOST_PTR</span><span class="p">,</span> <span class="n">hostbuf</span><span class="o">=</span><span class="n">errors</span><span class="p">)</span>
+	<span class="c1">### INPUT BUFFERS ###</span>
+	
+	
+	<span class="c1">### OUTPUT VARS ###</span>
+	<span class="n">resint_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">a_np</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+	<span class="c1">### OUTPUT VARS ###</span>
+	
+	<span class="c1">### OUTPUT BUFFERS ###</span>
+	<span class="n">resint_buf</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">Buffer</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">mf</span><span class="o">.</span><span class="n">WRITE_ONLY</span><span class="p">,</span> <span class="n">resint_np</span><span class="o">.</span><span class="n">nbytes</span><span class="p">)</span>
+	<span class="c1">### OUTPUT BUFFERS ###</span>
+	
+	<span class="c1">###EXECUTE###</span>
+	<span class="n">prg</span><span class="o">.</span><span class="n">clr</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="n">a_np</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span><span class="n">resint_buf</span><span class="p">,</span><span class="n">numcola_buf</span><span class="p">)</span>
+	<span class="n">cl</span><span class="o">.</span><span class="n">enqueue_copy</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="n">resint_np</span><span class="p">,</span> <span class="n">resint_buf</span><span class="p">)</span>
+	
+	<span class="n">exe_bla</span> <span class="o">=</span><span class="n">prg</span><span class="o">.</span><span class="n">ponderedaverage</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="n">a_np</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">a_buf</span><span class="p">,</span> <span class="n">b_buf</span><span class="p">,</span><span class="n">c_buf</span><span class="p">,</span><span class="n">resint_buf</span><span class="p">,</span><span class="n">numcola_buf</span><span class="p">,</span><span class="n">errors_buf</span><span class="p">)</span>
+	<span class="n">cl</span><span class="o">.</span><span class="n">enqueue_copy</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="n">resint_np</span><span class="p">,</span> <span class="n">resint_buf</span><span class="p">)</span>
+	<span class="k">return</span> <span class="n">resint_np</span></div>
+	<span class="c1">#print(1e-9*(exe_bla.profile.end-exe_bla.profile.start))</span>
+	<span class="c1">###EXECUTE</span>
+
+<span class="c1">#listner()</span>
+<span class="n">calcmap</span><span class="p">()</span>
+<span class="sd">&quot;&quot;&quot;if __name__ == &#39;__main__&#39;:</span>
+<span class="sd">	print (&#39;Dummy&#39;)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">SLAMFusion 1 documentation</a> &raquo;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &copy; Copyright 2016, Miguel Fernandes, Luis Alexandre.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4a1.
+    </div>
+  </body>
+</html>
